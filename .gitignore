@@ -10,3 +10,5 @@ infra/.env
 # Publishing either would expose the actual portfolio and its size.
 live/positions.json
 live/orders_*.csv
+live/paper_ledger.csv
+live/paper_performance.csv

@@ -242,6 +242,11 @@ backtest/
   test_gap_rvol.py / test_gap_controls.py   # intraday (rejected)
 live/
   generate_orders.py     # the actual buy/sell list, sharing the backtest's signal code
+  paper_broker.py        # simulated execution against live SmartAPI opening quotes
+  track_performance.py   # mark-to-market NAV calculator & real slippage auditor
+  test_paper_broker.py   # unit tests for paper execution invariants
+  positions.json         # active paper portfolio state (holdings & cash)
+  paper_ledger.csv       # append-only trade audit log
 data/
   fetch_universe.py      # chunked fetcher (5-min and daily) with integrity audit
   corporate_actions.py   # detects and neutralises unadjusted splits/demergers
@@ -284,7 +289,23 @@ python backtest/test_momentum.py            # the main result
 python backtest/test_momentum_controls.py   # the controls
 python backtest/walk_forward.py             # criterion 5 + the anti-overfitting test
 python backtest/test_permutation.py         # permutation test + Bonferroni
-python live/generate_orders.py --force --dry-run --rank-buffer 20   # today's buy list
+```
+
+### Phase 2: Forward Paper Trading & Slippage Measurement
+
+```bash
+# 1. Verify paper broker execution invariants (unit tests):
+python live/test_paper_broker.py
+
+# 2. After 15:30 IST market close on rebalance dates (generate buy/sell list):
+python live/generate_orders.py
+
+# 3. Next morning at 09:15–09:30 IST market open (simulated fill & slippage capture):
+python live/paper_broker.py               # fetches live opening quotes from SmartAPI
+python live/paper_broker.py --mock        # offline / testing mode
+
+# 4. Audit portfolio NAV, unrealized P&L, and slippage vs backtest assumptions:
+python live/track_performance.py
 ```
 
 Refreshing the data needs Angel One credentials in `.env` (see `.env.example`):
