@@ -29,7 +29,9 @@ from backtest.costs import angel_intraday_commission, SLIPPAGE_PER_LEG, cost_as_
 
 warnings.filterwarnings("ignore")
 
-DATA_DIR = PROJECT_ROOT / "data"
+# The 5-minute set lives in its own folder so the daily (delivery) data
+# under data/daily/ stays cleanly separated from the intraday work.
+DATA_DIR = PROJECT_ROOT / "data" / "intraday_5min"
 LEVERAGE = 5.0
 MARGIN = 1.0 / LEVERAGE
 

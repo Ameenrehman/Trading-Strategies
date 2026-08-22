@@ -62,7 +62,7 @@ SCRIP_MASTER_URL = (
 # it is reduced automatically if responses look truncated.
 INTERVALS = {
     "ONE_MINUTE":    {"chunk_days": 20,  "suffix": "1min",  "subdir": "minute", "bars_per_day": 375},
-    "FIVE_MINUTE":   {"chunk_days": 90,  "suffix": "5min",  "subdir": "",       "bars_per_day": 75},
+    "FIVE_MINUTE":   {"chunk_days": 90,  "suffix": "5min",  "subdir": "intraday_5min", "bars_per_day": 75},
     "FIFTEEN_MINUTE":{"chunk_days": 180, "suffix": "15min", "subdir": "min15",  "bars_per_day": 25},
     "ONE_DAY":       {"chunk_days": 550, "suffix": "1day",  "subdir": "daily",  "bars_per_day": 1},
 }

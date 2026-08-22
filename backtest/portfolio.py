@@ -183,6 +183,7 @@ def run_portfolio(closes: pd.DataFrame,
 
             pre_value = portfolio_value(px)
             traded = 0.0
+            costs_before = total_costs
 
             # Sell what is no longer wanted, to free cash first.
             for sym in list(shares):
@@ -244,8 +245,16 @@ def run_portfolio(closes: pd.DataFrame,
                             if gap > 0:
                                 traded += buy(sym, p, gap, date)
 
+            # Cost must be recorded as a fraction of the book AT THE TIME it
+            # was paid. Summing rupees over 15 years and dividing by the
+            # STARTING capital overstates the drag by the growth multiple —
+            # it reported 12.19%/yr on a book that grew 42.8x, when the true
+            # drag was ~1%/yr. The equity curve was always right; only the
+            # reported percentage was wrong.
             turnovers.append({"date": date,
                               "turnover": traded / pre_value if pre_value > 0 else 0.0,
+                              "cost_frac": ((total_costs - costs_before) / pre_value
+                                            if pre_value > 0 else 0.0),
                               "n_positions": len(shares)})
             if verbose:
                 print(f"  {date.date()}  n={len(shares):3d}  "
@@ -295,7 +304,13 @@ def summarise(equity: pd.Series, turnover: pd.DataFrame,
     else:
         avg_tno = annual_tno = rebals_per_year = np.nan
 
-    cost_drag = (total_costs / initial_capital) / years if years > 0 else np.nan
+    # Drag is the sum of each rebalance's cost as a fraction of the book at
+    # that moment, annualised — NOT total rupees over initial capital, which
+    # inflates by however much the portfolio compounded.
+    if len(turnover) and "cost_frac" in turnover:
+        cost_drag = turnover["cost_frac"].sum() / years if years > 0 else np.nan
+    else:
+        cost_drag = (total_costs / initial_capital) / years if years > 0 else np.nan
     # Average holding period implied by turnover, in months.
     avg_hold_months = 12.0 / annual_tno if annual_tno and annual_tno > 0 else np.nan
 
@@ -317,14 +332,26 @@ def summarise(equity: pd.Series, turnover: pd.DataFrame,
     }
 
 
-def load_daily(data_dir: Path = None):
+def load_daily(data_dir: Path = None, repair_corporate_actions: bool = True,
+               report: bool = False):
     """
     Load every daily CSV into aligned close and volume frames.
 
     Returns (closes, volumes) with a shared DatetimeIndex and one column per
-    symbol. Missing values are left as NaN rather than filled — the eligibility
-    filter in momentum_xs uses NaN to mean 'not tradable yet', and forward-fill
-    would silently invent prices for names that had not listed.
+    symbol.
+
+    Gaps inside a symbol's own history are forward-filled — those are holidays
+    and trading halts where the symbol simply did not trade, and leaving them
+    NaN would misalign the 200-day and 252-day windows across symbols. Leading
+    NaNs are deliberately NOT filled: the eligibility filter in momentum_xs
+    reads NaN as 'not tradable yet', which is what keeps a name out of the
+    universe before it listed.
+
+    `repair_corporate_actions` truncates any symbol carrying an unadjusted
+    split/demerger/relisting step so it starts after the event — see
+    data/corporate_actions.py for why this is not optional for momentum. Pass
+    False only to inspect the raw feed. Set `report=True` to return
+    (closes, volumes, events) instead.
     """
     data_dir = data_dir or (PROJECT_ROOT / "data" / "daily")
     files = sorted(Path(data_dir).glob("*_1day.csv"))
@@ -345,4 +372,10 @@ def load_daily(data_dir: Path = None):
 
     c = pd.DataFrame(closes).sort_index().ffill()
     v = pd.DataFrame(volumes).sort_index().reindex(c.index).fillna(0.0)
-    return c, v
+
+    events = {}
+    if repair_corporate_actions:
+        from data.corporate_actions import truncate_before_steps
+        c, v, events = truncate_before_steps(c, v)
+
+    return (c, v, events) if report else (c, v)

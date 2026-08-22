@@ -272,7 +272,7 @@ def run_evaluation(name, strat_cls):
     print(f"{'='*75}")
     res = []
     for sym in STOCKS:
-        data = load_data(f"data/{sym}_5min.csv")
+        data = load_data(f"data/intraday_5min/{sym}_5min.csv")
         bt = Backtest(data, strat_cls, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
         stats = bt.run()

@@ -20,7 +20,9 @@ from strategies.orb_strategy import ORBStrategy
 from backtest.costs import per_side_commission, cost_as_fraction
 
 RESULTS_DIR = Path(__file__).parent / "results"
-DATA_DIR = PROJECT_ROOT / "data"
+# The 5-minute set lives in its own folder so the daily (delivery) data
+# under data/daily/ stays cleanly separated from the intraday work.
+DATA_DIR = PROJECT_ROOT / "data" / "intraday_5min"
 DEFAULT_POSITION_SIZE = 50_000
 
 

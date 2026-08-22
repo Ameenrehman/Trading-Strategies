@@ -1,5 +1,5 @@
-﻿==============================================================================
-  PORTFOLIO BACKTESTER ΓÇö SANITY CHECKS
+==============================================================================
+  PORTFOLIO BACKTESTER — SANITY CHECKS
 ==============================================================================
   [PASS]  zero-cost buy&hold matches manual calc               diff 0.0000%
   [PASS]  turnover == 0 when selection never changes           max after build 0.00e+00
@@ -15,7 +15,8 @@
   [PASS]  momentum_scores at exact history boundary            n=272..275 all safe
   [PASS]  daily rebalance schedule runs                        800 daily vs 37 monthly
   [PASS]  one-way legs sum to the round-trip cost              Rs.393.05 vs Rs.393.05
+  [PASS]  cost drag independent of portfolio growth            reported 0.025%/yr vs expected 0.025%/yr (book grew 89206.2x)
 
 ==============================================================================
-  14/14 checks passed
+  15/15 checks passed
 ==============================================================================

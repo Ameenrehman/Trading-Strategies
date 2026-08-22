@@ -176,7 +176,9 @@ Learning-T/
     ├── nifty200.json           # delivery universe (VERIFY against live NSE list)
     ├── nifty50.json            # intraday universe
     ├── fetch_historical.py     # original day-by-day fetcher
-    └── *_5min.csv              # 5 symbols so far
+    ├── corporate_actions.py    # detects unadjusted splits/demergers/relistings
+    ├── daily/                  # 205 symbols x 15 yrs (delivery)
+    └── intraday_5min/          # 50 symbols x 2 yrs (intraday, rejected)
 ```## 7. Where the project went next — delivery (CNC), not intraday
 
 The intraday result diagnosed its own constraint precisely: **the same-day exit**. Median daily range is 142–192 bps, so each round trip burns 8–10% of the day's entire available movement. Holding longer attacks that directly, because moves scale with roughly sqrt(time) while cost is paid once per trade.
@@ -193,21 +195,44 @@ The catch is that **delivery costs 2.1x intraday** — STT is 0.1% on *both* leg
 
 **Exits:** no stop-loss, no take-profit — the rebalance is the exit. A name is sold when it drops out of the top 20 or falls below its 200-DMA. The 200-DMA filter is the systematic stop; hard stops and daily trend exits are implemented as *testable options*, not assumptions.
 
-**Annual cost drag: ~1.3-2.8%/yr** depending on turnover and capital, against a momentum premium historically in the high single digits. That is the structural difference from intraday, where cost exceeded the entire edge. Minimum viable capital is around Rs.5L.
+**Measured annual cost drag: 0.94%/yr** at the monthly baseline (516%/yr turnover, Rs.10L book), against a measured 12.18%/yr edge over the benchmark. That is the structural difference from intraday, where cost exceeded the entire edge. Minimum viable capital is around Rs.5L — below that, fixed Rs.20 brokerage and Rs.20 DP per scrip start to dominate.
 
-**Rebalance frequency is not turnover.** Measured: monthly + rank buffer = 216%/yr turnover and 1.32%/yr cost; naive daily = 2,161%/yr and **9.52%/yr**, which is more than the whole expected premium. If you want a daily list, pair it with a rank buffer.
+**Rebalance frequency is not turnover.** Measured on real data: monthly baseline = 516%/yr turnover and 0.94%/yr cost; daily with no rank buffer = 2,624%/yr and 4.85%/yr, giving up ~4.8%/yr of CAGR. With `--rank-buffer 20` a daily schedule turns over *less* than monthly (497%, 0.90%/yr), so a daily buy list is viable — it just requires the buffer.
 
-**Status:** cost model, portfolio backtester, strategy, controls and order generation are built and pass **14/14 known-answer sanity checks** on synthetic data. That process caught three real defects before any market data was involved. **No real-data result yet.**
+**Status: first real result in.** 205 Nifty 200 symbols, 15.0 years of daily bars, 15/15 known-answer sanity checks.
 
-**Pre-registered go/no-go:** beat equal-weight buy-and-hold by >=3%/yr after costs, higher Sharpe, drawdown no worse, beat >=19/20 random-selection seeds, bottom decile symmetrically worse, survive walk-forward, hold up in the recent 5 years. **Kill criterion: if it can't beat buy-and-hold by 3%/yr, stop — an index fund is then the right answer.**
+| | CAGR | Sharpe | Max DD | Turnover/yr | Cost/yr |
+|---|---:|---:|---:|---:|---:|
+| **Momentum** 12-1 top 20 +200DMA | **29.22%** | **1.42** | -37.4% | 516% | 0.94% |
+| Equal-weight buy & hold | 17.04% | 1.07 | -37.8% | 8% | 0.03% |
+| Random selection (mean, 20 seeds) | 15.38% | 0.95 | -37.1% | — | — |
+| Bottom decile by momentum | 12.21% | 0.75 | -41.8% | — | — |
+
+**Pre-registered go/no-go, scored:** (1) beat buy-and-hold by >=3%/yr after costs — **+12.18%/yr PASS**; (2) higher Sharpe, drawdown no worse — **PASS**; (3) beat >=19/20 random seeds — **20/20 PASS**; (4) bottom decile symmetrically worse — **PASS**; (5) survive walk-forward — **not yet run**; (6) hold up in the recent 5 years — **+2.04%/yr FAIL**.
+
+**Verdict: not established. No capital.** The kill criterion did not fire and the controls are convincing, but a criterion written before seeing the data failed, walk-forward has not run, and the 24-month holdout is untouched. The intraday phase looked convincing on 5 symbols and collapsed on 50 — that is the failure this sequence exists to prevent.
+
+**Two defects found once real data arrived:** (a) cost drag was computed against *initial* capital rather than the running book, overstating it 12x on a portfolio that compounded 42.8x — the equity curve was always correct, but every published cost table was wrong; (b) three symbols carried unadjusted corporate actions (ADANIENT demerger -80.9%, PATANJALI/Ruchi Soya relisting +406.2%, YESBANK moratorium -56.1%), which for a strategy ranking on trailing 12-month returns puts a phantom stock at the top or bottom of the ranking for twelve consecutive rebalances. Both are fixed and regression-tested.
 
 Full detail: `Learning-T/phase-1b-delivery-momentum.md`.
 
 ## 7b. Immediate next step
 
-**Fetch daily bars for the Nifty 200 from an unblocked network** — see `RUN_AT_HOME.md`. ~2,000 requests, ~15 minutes, ~15-20 MB.
+The data is fetched and committed; everything reproduces offline. Two pre-registered criteria remain open, and they are the whole job:
 
-Then check the report for history depth (the main unknown — Angel One's daily data may only reach 2016-2017), unresolved symbols, and suspect gaps. Then run `test_portfolio_sanity.py` (must be 14/14), `test_momentum.py` and `test_momentum_controls.py`.
+1. **Walk-forward** across the available history, no re-fitting between windows (criterion 5).
+2. **Understand the criterion 6 failure** — momentum has underperformed since 2025 (-8.9% relative that year, flat 2026). Is that a regime it survives (6 losing years in 16), or a structural break?
+3. Monte Carlo permutation test; Bonferroni bar for the 14 variants tested.
+4. Resolve `GUJGASLTD` and `LTIM` in the scrip-master lookup; verify `nifty200.json` against the live NSE list.
+5. **Then, exactly once, spend the 24-month holdout.**
+
+```bash
+python backtest/test_portfolio_sanity.py     # 15/15 or nothing else means anything
+python data/corporate_actions.py             # what gets repaired, and why
+python backtest/test_momentum.py             # main result + year-by-year
+python backtest/test_momentum_controls.py    # the controls
+python live/generate_orders.py --force --dry-run --rank-buffer 20
+```
 
 **The out-of-sample holdout has never been touched. Keep it that way.**
 

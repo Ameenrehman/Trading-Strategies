@@ -254,7 +254,7 @@ def evaluate_strategy(name, strategy_cls, extra_cols=False):
     results = []
 
     for sym in STOCKS:
-        data = load_data(f"data/{sym}_5min.csv")
+        data = load_data(f"data/intraday_5min/{sym}_5min.csv")
         if extra_cols:
             data['vwap'] = calc_intraday_vwap(data)
 

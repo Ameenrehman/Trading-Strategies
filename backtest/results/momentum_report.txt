@@ -1,4 +1,9 @@
-﻿Universe: 205 symbols
+Unadjusted corporate actions repaired before ranking:
+  ADANIENT     2015-06-03    -80.9%  -> history truncated to start after this date
+  PATANJALI    2020-01-27   +406.2%  -> history truncated to start after this date
+  YESBANK      2020-03-06    -56.1%  -> history truncated to start after this date
+
+Universe: 205 symbols
 History : 2011-08-24 -> 2026-08-21 (15.0 years)
 Capital : Rs.1,000,000
 
@@ -9,47 +14,77 @@ Testing exit-rule variants (stop loss / daily trend exit)...
 Sweeping rebalance frequency (daily / weekly / monthly)...
 
 ========================================================================================================================
-  CROSS-SECTIONAL MOMENTUM ΓÇö full history, after delivery costs
+  CROSS-SECTIONAL MOMENTUM — full history, after delivery costs
 ========================================================================================================================
                     variant  years  CAGR%  vol%  Sharpe  maxDD%  Calmar  turn/yr%  hold(mo)  cost%/yr         final
- BENCHMARK equal-weight B&H  14.99  17.07 16.38    1.06  -37.75    0.45      8.43    142.41      0.03 10,623,267.00
-momentum 12-1 top20 +200DMA  14.99  28.48 19.72    1.39  -37.38    0.76    518.88      2.31     12.19 42,806,838.66
-            no trend filter  14.99  27.94 20.02    1.35  -39.02    0.72    489.28      2.45     10.82 40,189,885.42
-                     top 10  14.99  26.72 22.04    1.20  -37.76    0.71    632.36      1.90     11.64 34,808,304.11
-                     top 30  14.99  26.91 18.81    1.38  -36.82    0.73    461.41      2.60     10.50 35,608,207.48
-               6-1 momentum  14.99  29.67 20.62    1.39  -34.29    0.87    714.70      1.68     20.61 49,154,175.65
-        quarterly rebalance  14.99  27.18 19.89    1.33  -39.93    0.68    279.04      4.30      5.88 36,753,678.69
-             rank buffer 10  14.99  27.96 19.63    1.38  -39.05    0.72    324.67      3.70      8.16 40,310,612.65
-       + disaster stop -25%  14.99  27.82 19.30    1.39  -32.10    0.87    514.70      2.33     11.50 39,621,222.02
-         + daily trend exit  14.99  25.99 17.85    1.41  -30.58    0.85    464.47      2.58     10.81 31,935,182.09
-            DAILY rebalance  14.99  24.39 19.47    1.24  -39.99    0.61  2,625.12      0.46     43.05 26,367,222.40
-     DAILY + rank buffer 10  14.99  28.32 19.25    1.42  -35.52    0.80    689.46      1.74     16.16 42,031,862.78
-     DAILY + rank buffer 20  14.99  28.96 19.16    1.45  -36.10    0.80    499.61      2.40     12.11 45,292,487.77
-           WEEKLY rebalance  14.99  27.91 19.61    1.38  -35.43    0.79  1,139.67      1.05     25.59 40,086,940.23
-    WEEKLY + rank buffer 10  14.99  29.37 19.38    1.45  -34.80    0.84    495.12      2.42     13.10 47,513,993.75
+ BENCHMARK equal-weight B&H  14.99  17.04 16.27    1.07  -37.77    0.45      8.34    143.85      0.03 10,586,431.57
+momentum 12-1 top20 +200DMA  14.99  29.22 19.73    1.42  -37.38    0.78    515.62      2.33      0.94 46,692,733.23
+            no trend filter  14.99  28.66 20.03    1.38  -39.01    0.73    485.44      2.47      0.88 43,753,568.84
+                     top 10  14.99  27.48 22.03    1.23  -37.78    0.73    630.40      1.90      1.09 38,100,339.07
+                     top 30  14.99  27.16 18.80    1.40  -36.82    0.74    458.63      2.62      0.88 36,675,179.83
+               6-1 momentum  14.99  30.19 20.52    1.41  -34.29    0.88    711.32      1.69      1.28 52,229,499.23
+        quarterly rebalance  14.99  27.77 19.83    1.36  -39.97    0.69    279.66      4.29      0.51 39,416,690.51
+             rank buffer 10  14.99  28.43 19.61    1.40  -39.07    0.73    323.12      3.71      0.58 42,572,227.37
+       + disaster stop -25%  14.99  28.61 19.32    1.42  -32.12    0.89    510.89      2.35      0.93 43,468,656.72
+         + daily trend exit  14.99  26.86 17.88    1.44  -30.66    0.88    460.31      2.61      0.85 35,413,084.38
+            DAILY rebalance  14.99  24.39 19.38    1.24  -40.05    0.61  2,623.84      0.46      4.85 26,365,651.58
+     DAILY + rank buffer 10  14.99  28.99 19.39    1.43  -35.48    0.82    685.59      1.75      1.24 45,450,416.97
+     DAILY + rank buffer 20  14.99  29.54 19.14    1.47  -36.03    0.82    496.94      2.41      0.90 48,450,416.85
+           WEEKLY rebalance  14.99  28.50 19.62    1.40  -35.43    0.80  1,131.13      1.06      2.06 42,907,457.10
+    WEEKLY + rank buffer 10  14.99  29.72 19.40    1.46  -34.81    0.85    492.09      2.44      0.89 49,433,965.14
 
 ========================================================================================================================
-  RECENT 5 YEARS ΓÇö index membership drift is smallest here.
+  RECENT 5 YEARS — index membership drift is smallest here.
   A big gap vs the full window is a survivorship-bias signature.
 ========================================================================================================================
                     variant  years  CAGR%  vol%  Sharpe  maxDD%  Calmar  turn/yr%  hold(mo)  cost%/yr        final
  BENCHMARK equal-weight B&H   4.99  14.04 13.60    1.05  -21.86    0.64     17.88     67.13      0.05 1,927,632.69
-momentum 12-1 top20 +200DMA   4.99  16.08 18.91    0.90  -30.27    0.53    487.79      2.46      1.74 2,106,100.67
+momentum 12-1 top20 +200DMA   4.99  16.08 18.91    0.90  -30.27    0.53    487.79      2.46      1.02 2,106,100.67
 
 ========================================================================================================================
-  GO / NO-GO (criteria 1, 2, 6 ΓÇö controls are in test_momentum_controls.py)
+  GO / NO-GO (criteria 1, 2, 6 — controls are in test_momentum_controls.py)
 ========================================================================================================================
-  1. Beats benchmark by >= 3%/yr : +11.40%/yr  [PASS]
-  2a. Higher Sharpe              : 1.39 vs 1.06  [PASS]
-  2b. Max drawdown no worse      : -37.4% vs -37.7%  [PASS]
+  1. Beats benchmark by >= 3%/yr : +12.18%/yr  [PASS]
+  2a. Higher Sharpe              : 1.42 vs 1.07  [PASS]
+  2b. Max drawdown no worse      : -37.4% vs -37.8%  [PASS]
   6. Recent-5y edge              : +2.04%/yr  [FAIL]
 
+========================================================================================================================
+  YEAR BY YEAR - where the edge actually comes from
+========================================================================================================================
+  year       momentum%   benchmark%     edge%
+  2011             0.0          0.0      +0.0
+  2012             5.3          6.7      -1.3   <- momentum lost
+  2013             8.8          6.1      +2.8
+  2014            79.2         59.1     +20.1
+  2015            41.3         12.3     +29.0
+  2016             1.2          5.8      -4.7   <- momentum lost
+  2017            71.5         45.7     +25.8
+  2018            -4.7         -4.7      -0.0   <- momentum lost
+  2019            16.0         10.8      +5.1
+  2020            73.3         33.3     +40.0
+  2021            92.8         42.8     +50.0
+  2022            23.7         -2.7     +26.3
+  2023            57.2         34.9     +22.3
+  2024            29.9         18.3     +11.6
+  2025            -2.2          6.7      -8.9   <- momentum lost
+  2026             1.6          2.0      -0.3   <- momentum lost
+
+  Years momentum beat the benchmark : 10/16
+  Median annual edge                : +8.4%
+  2012-2018 mean edge               : +9.0%/yr (4/8 years won)
+  2021-2026 mean edge               : +16.8%/yr (4/6 years won)
+
+  Survivorship reading: the bias inflates the EARLY years most, so an
+  edge concentrated in 2012-2016 would be the warning sign. Compare the
+  two means above before trusting or dismissing the full-window number.
+
   Variants tested this run: 14 (count them against the multiple-testing budget)
-  Annualised turnover: 519%/yr -> avg hold ~2.3 months
-  Turnover is the dominant cost lever ΓÇö compare turn/yr% across the
+  Annualised turnover: 516%/yr -> avg hold ~2.3 months
+  Turnover is the dominant cost lever — compare turn/yr% across the
   rebalance-frequency rows before choosing a schedule.
 
   NOTE: returns are price-only (no dividends). This understates the
   strategy and the benchmark roughly equally, so the comparison holds.
 
-Saved: E:\Trading-Strategies\backtest\results\momentum_summary.csv
+Saved: C:\Users\ameenur.r.OMAEMIRATES\Downloads\Learning-T\backtest\results\momentum_summary.csv

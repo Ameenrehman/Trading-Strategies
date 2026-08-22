@@ -4,18 +4,24 @@ Generate the rebalance order list — which stocks to buy and sell.
 Running this script daily is free. TRADING daily is not, and that distinction
 is the whole point of the --rebalance / --rank-buffer flags.
 
-Measured on the test framework, annual turnover and cost drag by schedule:
+Measured on 205 Nifty 200 names, 2011-2026 daily bars, after delivery costs:
 
-    monthly                      364%/yr turnover    2.04%/yr cost
-    monthly + rank buffer 10     216%/yr             1.32%/yr   <- cheapest
-    weekly  + rank buffer 10     338%/yr             2.10%/yr
-    daily   + rank buffer 10     527%/yr             3.03%/yr
-    daily,  no buffer          2,161%/yr             9.52%/yr   <- destroys it
+    schedule                    turnover/yr   cost/yr    CAGR
+    monthly (baseline)              516%       0.94%    29.22%
+    monthly + rank buffer 10        323%       0.58%    28.43%
+    quarterly                       280%       0.51%    27.77%
+    weekly  + rank buffer 10        492%       0.89%    29.72%   <- best
+    daily   + rank buffer 20        497%       0.90%    29.54%
+    daily   + rank buffer 10        686%       1.24%    28.99%
+    weekly, no buffer             1,131%       2.06%    28.50%
+    daily,  no buffer             2,624%       4.85%    24.39%   <- worst
 
-Naive daily rebalancing churns names oscillating across the top-N boundary and
-costs about 9.5%/yr, which is more than the entire expected premium. A rank
-buffer fixes that: hold a name until it drops out of the top (n + buffer). With
-a buffer, checking daily is affordable and gives faster exits than month-end.
+Naive daily rebalancing churns names oscillating across the top-N boundary,
+costing 4.85%/yr and giving up ~4.8%/yr of CAGR. A rank buffer fixes that:
+hold a name until it drops out of the top (n + buffer). With a buffer, a daily
+schedule costs no more than a monthly one AND exits faster — daily + buffer 20
+turns over less than the monthly baseline. So a daily buy list is not a
+compromise; it just requires the buffer.
 
 The workflow
 ------------
@@ -88,14 +94,19 @@ def main():
     ap.add_argument("--rebalance", default="ME", choices=["D", "W", "ME", "QE"],
                     help="D=daily, W=weekly, ME=month-end (default), QE=quarter-end. "
                          "Running the SCRIPT daily is free; TRADING daily is not — "
-                         "naive daily rebalancing measured 2161%% annual turnover and "
-                         "9.5%%/yr in costs. Pair D or W with --rank-buffer.")
+                         "naive daily rebalancing measured 2624%% annual turnover and "
+                         "4.85%%/yr in costs. Pair D or W with --rank-buffer.")
     ap.add_argument("--rank-buffer", type=int, default=0,
                     help="Keep holding a name until it drops out of the top "
                          "(n + buffer). Essential for daily/weekly schedules: it cut "
-                         "turnover from 2161%% to 527%% in testing.")
+                         "turnover from 2624%% to 497%% and recovered ~5%%/yr "
+                         "of CAGR on real data.")
     ap.add_argument("--cash", type=float, default=None,
                     help="Idle cash to deploy alongside current holdings")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Print the orders but do NOT write positions.json. Use "
+                         "this to look at the list without the script recording "
+                         "an intended book you have not actually bought.")
     args = ap.parse_args()
 
     try:
@@ -231,6 +242,14 @@ def main():
     print(f"    3. Record actual fills, then update {POSITIONS_FILE.name}.")
 
     # Persist the intended book so the next run has a baseline to diff against.
+    #
+    # Guarded by --dry-run because simply LOOKING at the list used to record a
+    # portfolio you had not bought: the next run would then diff against
+    # phantom holdings and emit sells for stock you never owned.
+    if args.dry_run:
+        print(f"\n    (--dry-run: {POSITIONS_FILE.name} left untouched)")
+        return
+
     projected = dict(pos["holdings"])
     for _, r in orders.iterrows():
         d = int(r["qty"]) * (1 if r["action"] == "BUY" else -1)

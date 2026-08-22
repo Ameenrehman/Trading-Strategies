@@ -2,7 +2,20 @@
 
 Goal: find a systematic, long-only equity strategy that beats simply buying and holding the index, after realistic Indian delivery costs. Runs entirely locally on historical daily data — no orders, no regulatory constraints.
 
-**Status (2026-08-22): built and validated on synthetic data; waiting on the real daily data pull.** Cost model, portfolio backtester, strategy and controls are written and passing 12/12 sanity checks. Nothing has been tested on real market data yet.
+**Status (2026-08-22): run on real data. 5 of 6 pre-registered criteria pass; criterion 6 fails.**
+
+205 Nifty 200 symbols, 15.0 years of daily bars (2011-08-24 → 2026-08-21). 15/15 sanity checks pass.
+
+| | CAGR | Vol | Sharpe | Max DD | Turnover/yr | Cost/yr |
+|---|---:|---:|---:|---:|---:|---:|
+| **Momentum** 12-1 top 20 +200DMA | **29.22%** | 19.7% | **1.42** | −37.4% | 516% | 0.94% |
+| Equal-weight buy & hold | 17.04% | 16.3% | 1.07 | −37.8% | 8% | 0.03% |
+| Random selection (mean, 20 seeds) | 15.38% | — | 0.95 | −37.1% | — | — |
+| Bottom decile by momentum | 12.21% | — | 0.75 | −41.8% | — | — |
+
+**+12.18%/yr after costs, 20/20 random seeds beaten, bottom decile symmetrically worse.** The mirror pattern is what distinguishes a real ranking effect from equity beta plus a trend filter.
+
+**Criterion 6 failed:** over the most recent 5 years the edge is +2.04%/yr, with a lower Sharpe (0.90 vs 1.05) and a worse drawdown (−30.3% vs −21.9%) than holding the universe. See §5.5. Nothing here is validated until walk-forward runs and the 24-month holdout is spent.
 
 ---
 
@@ -122,7 +135,7 @@ What it does *not* model, stated so it isn't discovered later: **dividends** (re
 
 ### Verified before use
 
-`backtest/test_portfolio_sanity.py` — 12 checks on synthetic data with known answers, because a portfolio backtester is easy to get subtly wrong in ways that flatter the result. Phase 1 shipped eight such defects before they were caught.
+`backtest/test_portfolio_sanity.py` — 15 checks on synthetic data with known answers, because a portfolio backtester is easy to get subtly wrong in ways that flatter the result. Phase 1 shipped eight such defects before they were caught.
 
 ```
 [PASS] zero-cost buy&hold matches manual calc          diff 0.0000%
@@ -134,10 +147,13 @@ What it does *not* model, stated so it isn't discovered later: **dividends** (re
 [PASS] holds cash when nothing qualifies
 [PASS] signal_fn never sees data beyond the rebalance date
 [PASS] one-way legs sum to the round-trip cost         Rs.393.05 vs Rs.393.05
-... 12/12
+[PASS] cost drag independent of portfolio growth       reported 0.025%/yr vs expected 0.025%/yr
+... 15/15
 ```
 
-Two real defects were caught this way before any market data was involved: the backtester was force-rebalancing every holding to equal weight monthly (creating large artificial turnover), and new entries could be sized beyond available cash.
+Three real defects were caught this way before any market data was involved: the backtester was force-rebalancing every holding to equal weight monthly (creating large artificial turnover), new entries could be sized beyond available cash, and `momentum_scores` mis-indexed at the exact history boundary (only daily rebalancing lands there, so monthly testing never hit it).
+
+A fourth surfaced only once real data arrived, and is the reason for check 15. **Cost drag was computed as total rupees ÷ *initial* capital ÷ years.** Over 15 years the book compounded 42.8×, so the reported figure was inflated by roughly that multiple: it printed **12.19%/yr when the true drag was 0.94%/yr**. The equity curve was correct throughout — costs were always charged correctly against the running portfolio — but every published cost table was 12× too high, and it made daily rebalancing look unaffordable when it is not. Check 15 pins drag to the turnover and cost rate implied by the trade log itself, on a synthetic book that grows ~89,000×.
 
 ---
 
@@ -168,6 +184,59 @@ Mitigations actually implemented, not just disclaimed:
 2. Results are reported on **both** the full window and the recent 5 years, where index drift is smallest. A large gap between them is a survivorship-bias signature.
 3. The outperformance bar is **3%/yr, not "positive"**, because the bias is plausibly worth ~2%/yr.
 
+### 5.5 What the real data said
+
+**The controls passed decisively.**
+
+```
+REAL (top 20 by momentum)     29.22%   Sharpe 1.42   maxDD -37.4%
+BENCHMARK (equal-weight B&H)  17.04%   Sharpe 1.07   maxDD -37.8%
+Control A random (mean of 20) 15.38%   Sharpe 0.95   maxDD -37.1%
+Control B bottom decile       12.21%   Sharpe 0.75   maxDD -41.8%
+
+Random seeds matching or beating the real strategy: 0/20
+```
+
+Momentum beat every random seed drawn from the same eligible, in-trend pool, and the bottom decile came in 3.17%/yr *below* random. Both directions matter: if the ranking were noise, top and bottom would straddle random symmetrically at zero. They don't — the ranking carries information.
+
+**Criterion 6 failed, and it is the one open question.**
+
+Over the trailing 5 years momentum returns 16.08%/yr against the benchmark's 14.04% — a +2.04%/yr edge, below the 3% bar, with a *lower* Sharpe and a *worse* drawdown. Since survivorship bias is smallest in the recent window, the pre-registered reading is that the full-window number is inflated.
+
+The year-by-year table complicates that reading:
+
+| Period | Mean annual edge | Years won |
+|---|---:|---:|
+| 2012–2018 | +9.0%/yr | 4/8 |
+| 2021–2026 | +16.8%/yr | 4/6 |
+
+Survivorship bias inflates the **oldest** data most — today's index membership excludes the companies that failed along the way. An edge driven by that bias would be concentrated in 2012–2016. It is not; the recent years are stronger.
+
+What the 5-year window actually catches is two things:
+
+1. **Window placement.** It starts in August 2021 and so misses most of that year's +50% relative run while fully including 2025.
+2. **A genuine recent drawdown.** 2025 was −8.9% relative and 2026 is flat. Momentum has underperformed for roughly 18 months.
+
+Sustained relative drawdowns are momentum's documented failure mode, not evidence the backtest is broken. But criterion 6 was written down before any data was seen, and it failed. It is recorded as a failure, not reinterpreted into a pass — and it is exactly what walk-forward and the holdout exist to adjudicate.
+
+### 5.6 Unadjusted corporate actions — a defect found in the data, not the code
+
+Angel One serves **unadjusted** closes. A demerger or relisting therefore appears as a single-day step that no shareholder experienced. For momentum this is not cosmetic: the ranking is a trailing 12-month return, so one such step parks a phantom stock at the top or bottom of the ranking for **twelve consecutive rebalances**.
+
+Scanning all 205 symbols at ≤ −50% / ≥ +100% in one day returned exactly three:
+
+| Symbol | Date | Step | Cause |
+|---|---|---:|---|
+| ADANIENT | 2015-06-03 | −80.9% | demerger — holders received shares in the spun-out entities |
+| PATANJALI | 2020-01-27 | +406.2% | Ruchi Soya relisting after a 75-day trading halt |
+| YESBANK | 2020-03-06 | −56.1% | RBI moratorium — a *genuine* loss, truncated anyway |
+
+`data/corporate_actions.py` truncates each symbol's history to begin after its last such event, so it behaves like a name that listed on that date. Truncation is preferred to dropping the symbol, which would remove a genuine constituent from 15 years of universe and create its own selection bias.
+
+The detector cannot distinguish a real crash from a data artifact — that requires knowing the corporate event, which is precisely what free price data lacks. So the rule is applied uniformly and the affected symbols are reported, rather than hand-picking which to "fix". Hand-picking is where bias enters unnoticed. The cost of the false positive is one symbol's pre-2020 history; the cost of a false negative is a fabricated top-ranked stock held for a year.
+
+**It was not harmless.** Uncorrected, the strategy bought PATANJALI at ₹457 on a manufactured signal and sold it at ₹201. Repairing the three symbols raised CAGR from 28.48% to 29.22% — the contamination was *costing* return, not creating it.
+
 ### Remaining checklist
 
 - [ ] Walk-forward across the available history, no parameter re-fitting between windows
@@ -177,14 +246,20 @@ Mitigations actually implemented, not just disclaimed:
 
 ---
 
-## 6. Go / no-go — pre-registered before any real data is seen
+## 6. Go / no-go — pre-registered before any real data was seen, now scored
 
-1. Beats equal-weight buy-and-hold by **≥ 3%/yr CAGR after costs**
-2. Higher Sharpe than the benchmark, and **max drawdown no worse**
-3. Beats **≥ 19 of 20** random-selection seeds
-4. Bottom-decile control clearly worse than the benchmark
-5. Survives walk-forward without re-fitting
-6. Holds up in the recent-5-year subsample, not just the full window
+| # | Criterion | Result | |
+|---|---|---|---|
+| 1 | Beats equal-weight buy-and-hold by ≥ 3%/yr CAGR after costs | +12.18%/yr | **PASS** |
+| 2 | Higher Sharpe, max drawdown no worse | 1.42 vs 1.07; −37.4% vs −37.8% | **PASS** |
+| 3 | Beats ≥ 19 of 20 random-selection seeds | 20/20 | **PASS** |
+| 4 | Bottom-decile control clearly worse than the benchmark | 12.21% vs 17.04% | **PASS** |
+| 5 | Survives walk-forward without re-fitting | not yet run | **pending** |
+| 6 | Holds up in the recent-5-year subsample | +2.04%/yr | **FAIL** |
+
+**The call: not established, continue validating — do not deploy capital.**
+
+The kill criterion did not fire. The evidence for a real ranking effect is strong: the controls are the same design that killed the intraday phase, and here they pass in both directions. But criterion 6 failed on the window where survivorship bias is weakest, criterion 5 has not been run, and the 24-month holdout is untouched. Declaring success now would be exactly the mistake this project was set up to avoid — Round 2 of the intraday phase looked convincing on 5 symbols and collapsed on 50.
 
 **Kill criterion:** if the strategy cannot beat buy-and-hold by 3%/yr after costs, stop. Buying and holding an index fund is then the correct answer, and that is a legitimate and valuable result — the same discipline that ended the intraday phase cleanly instead of bleeding money into it.
 
@@ -194,10 +269,14 @@ Mitigations actually implemented, not just disclaimed:
 
 **Nifty 200, daily bars, targeting 15 years.** `data/nifty200.json` (207 symbols), fetched by `data/fetch_universe.py --interval ONE_DAY`.
 
-Two uncertainties designed around rather than assumed:
+Two uncertainties were designed around rather than assumed. Both resolved favourably:
 
-- **Request size.** Angel One documents 100 days per request at 5-minute, but forum reports also mention a ~500-row response cap. The fetcher starts at 550-day chunks for daily bars and **halves the span and retries** whenever a response looks truncated, because silent truncation would quietly put holes in the history.
-- **History depth.** Angel One's daily history reportedly starts around 2016–2017 for many instruments. The fetcher attempts 15 years, accepts what comes back, and **reports actual per-symbol coverage**. If the median start is 2017, the test window shrinks and we say so rather than pretending the depth is there.
+- **Request size.** Angel One documents 100 days per request at 5-minute, and forum reports mention a ~500-row response cap. The fetcher starts at 550-day chunks for daily bars and **halves the span and retries** whenever a response looks truncated. No truncation was detected in the completed pull.
+- **History depth.** Daily history was expected to start around 2016–2017. It came back at **median 15.0 years**, earliest 2011-08-24 — the full requested window. 34 of 205 symbols have under 10 years, all genuine later listings (ADANIGREEN 2018, IRCTC 2019, SBILIFE 2017). The test window did not have to shrink.
+
+**What actually came back:** 205 of 207 symbols resolved; `GUJGASLTD` and `LTIM` failed on scrip-master naming. Both are real Nifty 200 members, so this is a lookup mismatch rather than a missing company, and 203/205 coverage changes no conclusion — but it should be fixed before the holdout is spent.
+
+**Audit findings.** `suspect_gaps` (>25% single-day move) flagged 38 symbols. Nearly all are genuine market events: the March 2020 COVID crash, the 2017-10-25 PSU-bank recapitalisation announcement (BANKBARODA, BANKINDIA, CANBK, PNB, SBIN, UNIONBANK all +27–46% on the same day), YESBANK's 2020 collapse, CGPOWER's 2019 accounting fraud. Seven symbols carry exactly one bar with an inconsistent OHLC relationship — 1 in ~3,700, and momentum reads closes only. The three genuine data defects are handled in §5.6.
 
 Cost: ~2,000 requests, ~15 minutes, ~15–20 MB total. Angel One is firewalled on the work network, so this runs on a personal machine — see [`../RUN_AT_HOME.md`](../RUN_AT_HOME.md).
 
@@ -227,26 +306,33 @@ It also estimates the cost of the generated orders, and prints a reminder that `
 **Done**
 - [x] Delivery cost model, verified against current published rates
 - [x] Portfolio backtester with per-leg cost accounting
-- [x] 12/12 sanity checks on synthetic data with known answers
+- [x] 15/15 sanity checks on synthetic data with known answers
 - [x] Cross-sectional momentum + trend filter
 - [x] Random-selection and bottom-decile controls
 - [x] Exit-rule variants (disaster stop, daily trend exit, rank buffer) so the stop-loss question is testable
 - [x] Order generation sharing the backtest's signal code
 - [x] Nifty 200 universe list and daily-capable fetcher
 
+- [x] **Fetch the daily data** — 205 symbols, 15.0 years, `data/daily/`
+- [x] Check the fetch report: history depth, unresolved symbols, suspect gaps
+- [x] Detect and neutralise unadjusted corporate actions (`data/corporate_actions.py`)
+- [x] `python backtest/test_momentum.py` — +12.18%/yr over benchmark after costs
+- [x] `python backtest/test_momentum_controls.py` — 20/20 seeds beaten, mirror pattern intact
+- [x] Score §6 explicitly in writing — 5 pass, 1 fail, not established
+
 **Next**
-- [ ] **Fetch the daily data** (`RUN_AT_HOME.md`) — blocked on the corporate firewall
+- [ ] **Walk-forward** across the available history, no re-fitting between windows (criterion 5)
+- [ ] **Understand the criterion 6 failure** — is the 2025 underperformance a regime the strategy survives, or a break?
+- [ ] Monte Carlo permutation test on the ranking
+- [ ] Resolve `GUJGASLTD` and `LTIM` in the scrip-master lookup
 - [ ] Verify `nifty200.json` against the live NSE constituent list
-- [ ] Check the fetch report: history depth, unresolved symbols, suspect gaps
-- [ ] `python backtest/test_momentum.py` — the main result
-- [ ] `python backtest/test_momentum_controls.py` — does the ranking carry information
-- [ ] Walk-forward and Monte Carlo permutation
-- [ ] Touch the 24-month holdout exactly once, at the end
-- [ ] Make the §6 call explicitly, in writing
+- [ ] Bonferroni bar for the 14 variants tested so far
+- [ ] Touch the 24-month holdout **exactly once**, at the end
 
 ## Verification
 
 - `python backtest/costs.py` — ₹1L delivery = 39.3 bps, STT is 50.9% of it
-- `python backtest/test_portfolio_sanity.py` — 12/12
+- `python backtest/test_portfolio_sanity.py` — 15/15
+- `python data/corporate_actions.py` — lists the 3 repaired symbols and the thresholds
 - `python backtest/test_momentum.py --data-dir <dir>` — runs against any dataset
 - `python backtest/verify_fixes.py` — the intraday work still passes its invariants

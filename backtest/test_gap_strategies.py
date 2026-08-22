@@ -202,7 +202,7 @@ def test_both():
     print("=" * 75)
     res1 = []
     for sym in STOCKS:
-        data = load_data(f"data/{sym}_5min.csv")
+        data = load_data(f"data/intraday_5min/{sym}_5min.csv")
         bt = Backtest(data, GapFadeStrategy, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
         stats = bt.run()
@@ -224,7 +224,7 @@ def test_both():
     print("=" * 75)
     res2 = []
     for sym in STOCKS:
-        data = load_data(f"data/{sym}_5min.csv")
+        data = load_data(f"data/intraday_5min/{sym}_5min.csv")
         bt = Backtest(data, TrendGapTrailing, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
         stats = bt.run()

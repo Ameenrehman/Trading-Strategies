@@ -189,6 +189,29 @@ def main():
     check("one-way legs sum to the round-trip cost", abs(one_way - rt) < 0.01,
           f"Rs.{one_way:.2f} vs Rs.{rt:.2f}")
 
+    # --- 15. cost drag is measured on the RUNNING book -------------------
+    # Regression: cost drag used to be total rupees / INITIAL capital / years.
+    # On a book that compounds, that inflates the reported drag by roughly the
+    # growth multiple - the first real-data run reported 12.19%/yr on a
+    # portfolio that grew 42.8x, when the true drag was ~1%/yr. The equity
+    # curve was correct throughout; only the reported percentage was wrong.
+    #
+    # Known answer: annualised drag must equal annualised turnover multiplied
+    # by the effective cost rate implied by the trade log itself.
+    grow, grow_vol = synthetic(n_days=2000, drift=0.0012, seed=3)
+    r_cost = run_portfolio(grow, hold_all, initial_capital=1_000_000,
+                           charge_costs=True, rebalance="ME")
+    st = r_cost["stats"]
+    tl = r_cost["trades"]
+    eff_rate = tl["cost"].sum() / tl["value"].sum()      # cost per rupee traded
+    expected = st["annual_turnover_pct"] / 100 * eff_rate * 100
+    reported = st["cost_drag_pct_yr"]
+    growth = r_cost["equity"].iloc[-1] / 1_000_000
+    ratio = reported / expected if expected > 0 else float("nan")
+    check("cost drag independent of portfolio growth", 0.8 < ratio < 1.25,
+          f"reported {reported:.3f}%/yr vs expected {expected:.3f}%/yr "
+          f"(book grew {growth:.1f}x)")
+
     print("\n" + "=" * 78)
     n_pass = sum(1 for _, ok, _ in results if ok)
     print(f"  {n_pass}/{len(results)} checks passed")

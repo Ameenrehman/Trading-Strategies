@@ -195,7 +195,8 @@ def main():
         symbol = stock["symbol"]
         token = stock["token"]
         exchange = stock["exchange"]
-        csv_path = DATA_DIR / f"{symbol}_5min.csv"
+        csv_path = DATA_DIR / "intraday_5min" / f"{symbol}_5min.csv"
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
 
         print(f"\n--- Fetching {symbol} (token: {token}) ---")
 

@@ -66,7 +66,13 @@ def main():
                     help="Baseline and benchmark only, skip the variant sweep")
     args = ap.parse_args()
 
-    closes, volumes = load_daily(Path(args.data_dir) if args.data_dir else None)
+    closes, volumes, ca_events = load_daily(
+        Path(args.data_dir) if args.data_dir else None, report=True)
+    if ca_events:
+        from data.corporate_actions import format_events
+        print("Unadjusted corporate actions repaired before ranking:")
+        print(format_events(ca_events))
+        print()
     print(f"Universe: {closes.shape[1]} symbols")
     print(f"History : {closes.index[0].date()} -> {closes.index[-1].date()} "
           f"({(closes.index[-1] - closes.index[0]).days / 365.25:.1f} years)")
@@ -182,6 +188,41 @@ def main():
     if np.isfinite(edge5):
         print(f"  6. Recent-5y edge              : {edge5:+.2f}%/yr  "
               f"[{'PASS' if edge5 >= 3 else 'FAIL'}]")
+    # --- year-by-year, because a single 5-year cut is fragile --------------
+    # Criterion 6 compares two CAGRs over one arbitrary window. That window
+    # starts mid-2021 and therefore misses most of the 2021 momentum run while
+    # fully including 2025, so it can read as a failure even when the annual
+    # record is strong. The pre-registered test above is reported as-is and is
+    # NOT adjusted; this table exists so the reason for its verdict is visible.
+    #
+    # It also tests the survivorship story directly: today's index membership
+    # applied to the past biases the EARLY years most, so an edge that is real
+    # should not be concentrated in 2012-2016.
+    eq = pd.DataFrame({"mom": mom["equity"], "bench": bench["equity"]}).dropna()
+    yr = pd.concat([eq.iloc[[0]], eq.resample("YE").last()])
+    ann = yr.pct_change().dropna() * 100
+    ann["edge"] = ann["mom"] - ann["bench"]
+    ann.index = ann.index.year
+    print("\n" + "=" * 120)
+    print("  YEAR BY YEAR - where the edge actually comes from")
+    print("=" * 120)
+    print(f"  {'year':<8}{'momentum%':>12}{'benchmark%':>13}{'edge%':>10}")
+    for y, row in ann.iterrows():
+        mark = "   <- momentum lost" if row["edge"] < 0 else ""
+        print(f"  {y:<8}{row['mom']:>12.1f}{row['bench']:>13.1f}"
+              f"{row['edge']:>+10.1f}{mark}")
+    early = ann[ann.index <= 2018]
+    late = ann[ann.index >= 2021]
+    print(f"\n  Years momentum beat the benchmark : {(ann['edge'] > 0).sum()}/{len(ann)}")
+    print(f"  Median annual edge                : {ann['edge'].median():+.1f}%")
+    print(f"  2012-2018 mean edge               : {early['edge'].mean():+.1f}%/yr "
+          f"({(early['edge'] > 0).sum()}/{len(early)} years won)")
+    print(f"  2021-2026 mean edge               : {late['edge'].mean():+.1f}%/yr "
+          f"({(late['edge'] > 0).sum()}/{len(late)} years won)")
+    print("\n  Survivorship reading: the bias inflates the EARLY years most, so an")
+    print("  edge concentrated in 2012-2016 would be the warning sign. Compare the")
+    print("  two means above before trusting or dismissing the full-window number.")
+
     print(f"\n  Variants tested this run: {variants} "
           f"(count them against the multiple-testing budget)")
     print(f"  Annualised turnover: {mom['stats']['annual_turnover_pct']:.0f}%/yr "

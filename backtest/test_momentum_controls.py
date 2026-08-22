@@ -54,7 +54,13 @@ def main():
                     help="Directory of *_1day.csv files (default: data/daily)")
     args = ap.parse_args()
 
-    closes, volumes = load_daily(Path(args.data_dir) if args.data_dir else None)
+    closes, volumes, ca_events = load_daily(
+        Path(args.data_dir) if args.data_dir else None, report=True)
+    if ca_events:
+        from data.corporate_actions import format_events
+        print("Unadjusted corporate actions repaired before ranking:")
+        print(format_events(ca_events))
+        print()
     cfg = MomentumConfig()
     cap = args.capital
 

@@ -225,7 +225,7 @@ def test_suite():
     print("=" * 75)
     res1 = []
     for sym in STOCKS:
-        data_5m = load_data(f"data/{sym}_5min.csv")
+        data_5m = load_data(f"data/intraday_5min/{sym}_5min.csv")
         data_15m = resample_to_15min(data_5m)
         bt = Backtest(data_15m, ORB15MinTrailing, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
@@ -248,7 +248,7 @@ def test_suite():
     print("=" * 75)
     res2 = []
     for sym in STOCKS:
-        data_5m = load_data(f"data/{sym}_5min.csv")
+        data_5m = load_data(f"data/intraday_5min/{sym}_5min.csv")
         data_nr7 = add_nr7_column(data_5m)
         bt = Backtest(data_nr7, NR7BreakoutStrategy, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)

@@ -221,7 +221,7 @@ def run():
     print("=" * 75)
     res1 = []
     for sym in STOCKS:
-        data_raw = load_data(f"data/{sym}_5min.csv")
+        data_raw = load_data(f"data/intraday_5min/{sym}_5min.csv")
         data_proc = add_daily_patterns(data_raw)
         bt = Backtest(data_proc, CompressionBreakoutStrategy, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
@@ -244,7 +244,7 @@ def run():
     print("=" * 75)
     res2 = []
     for sym in STOCKS:
-        data_raw = load_data(f"data/{sym}_5min.csv")
+        data_raw = load_data(f"data/intraday_5min/{sym}_5min.csv")
         data_proc = add_daily_patterns(data_raw)
         bt = Backtest(data_proc, PrevDayBreakoutStrategy, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
