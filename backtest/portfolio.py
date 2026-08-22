@@ -145,8 +145,8 @@ def run_portfolio(closes: pd.DataFrame,
             return 0.0
         notional = qty * price
         cost = delivery_one_way_cost(notional, "buy", slippage_per_leg) if charge_costs else 0.0
-        if notional + cost > cash:
-            qty = int((cash * 0.999) // price)
+        while qty >= 1 and notional + cost > cash:
+            qty -= 1
             if qty < 1:
                 return 0.0
             notional = qty * price
@@ -343,6 +343,6 @@ def load_daily(data_dir: Path = None):
         closes[sym] = d["close"]
         volumes[sym] = d["volume"]
 
-    c = pd.DataFrame(closes).sort_index()
-    v = pd.DataFrame(volumes).sort_index().reindex(c.index)
+    c = pd.DataFrame(closes).sort_index().ffill()
+    v = pd.DataFrame(volumes).sort_index().reindex(c.index).fillna(0.0)
     return c, v

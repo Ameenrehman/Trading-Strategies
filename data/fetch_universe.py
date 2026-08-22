@@ -105,6 +105,13 @@ def authenticate(creds):
     return smart
 
 
+SYMBOL_ALIASES = {
+    "TATAMOTORS": "TMPV",
+    "L&TFH": "LTF",
+    "PEL": "PIRAMALFIN",
+}
+
+
 def resolve_tokens(symbols):
     """Map trading symbol -> Angel One token using the public scrip master."""
     print(f"  Downloading scrip master ...")
@@ -115,6 +122,11 @@ def resolve_tokens(symbols):
     print(f"  Scrip master rows: {len(master):,}")
 
     wanted = {s.upper() for s in symbols}
+    target_to_sym = {s: s for s in wanted}
+    for orig, alias in SYMBOL_ALIASES.items():
+        if orig in wanted:
+            target_to_sym[alias] = orig
+
     found, seen = {}, set()
 
     for row in master:
@@ -124,9 +136,11 @@ def resolve_tokens(symbols):
         if not tsym.endswith("-EQ"):
             continue
         root = tsym[:-3]
-        if root in wanted and root not in seen:
-            found[root] = row.get("token")
-            seen.add(root)
+        if root in target_to_sym:
+            orig_sym = target_to_sym[root]
+            if orig_sym not in seen:
+                found[orig_sym] = row.get("token")
+                seen.add(orig_sym)
 
     missing = sorted(wanted - seen)
     if missing:
