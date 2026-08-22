@@ -4,3 +4,7 @@ __pycache__/
 .env
 infra/.env
 *.log
+
+# 50-symbol dataset is 108 MB; regenerate with data/fetch_universe.py
+# Uncomment to stop tracking it if the repo gets unwieldy:
+# data/*_5min.csv

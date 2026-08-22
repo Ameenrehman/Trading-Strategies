@@ -4,9 +4,13 @@ Goal: prove a strategy has a real, non-curve-fit, post-cost edge on historical N
 
 Strategy is the main deliverable of this whole project — this phase is allowed to take real time. Don't lock in the first idea that backtests positive; the validation checklist below exists specifically so you don't fool yourself.
 
-**Status (2026-08-22): defects fixed, one strategy now looks genuinely promising, but it is not validated and does not yet clear the go/no-go bar in §9.**
+**Status (2026-08-22): PHASE 1 COMPLETE — the kill criterion in §9 has fired. No strategy tested clears its costs. Recommendation: stop this direction.**
 
-Round 1 tested 11 strategies across 4 families and found no post-cost edge anywhere. Round 2 fixed the implementation defects that round 1 exposed, built the Dynamic Gap + RVOL Momentum strategy, and ran a randomized-entry control. The best variant now shows **+30.7 bps gross / +15.8 bps net per trade** and beats all 20 randomized-direction control seeds — but on only **94 trades**, selected as best-of-10 in-sample, with no out-of-sample test. The decisive experiment needs the 50-symbol universe, which is **blocked on this machine by a corporate firewall** (§12).
+Round 1 tested 11 strategies across 4 families and found no post-cost edge. Round 2 fixed the implementation defects, built the Dynamic Gap + RVOL Momentum strategy, and showed **+30.7 bps gross / +15.8 bps net** on 5 symbols — passing a randomized-direction control decisively. Round 3 ran that same strategy on the full **50-symbol Nifty 50 universe**, and the result collapsed: **+11.3 bps gross, −3.5 bps net**. All 10 variants are net negative.
+
+The 5-symbol result was a favourable draw, and the widened universe shows it plainly: the original 5 names give +30.7 bps gross, the other 45 give +8.3 bps and **−6.5 bps net (t = −2.15, significantly negative)**.
+
+**What is actually true:** there IS a real directional edge — +11.26 bps gross with t = 4.00 over 702 trades is statistically solid, and the randomized-direction control confirmed it is not a volatility artifact. **It is simply smaller than the cost of trading it.** Breakeven would need slippage of **0.49 bps per leg** — effectively zero market impact. Even at an unrealistically generous 1 bps/leg, the strategy nets about **₹3,000/year** on ₹1 lakh positions. That is not a business.
 
 ---
 
@@ -120,6 +124,57 @@ Pooled across 5 stocks, 2 years. `cost` is the **realised** cost at the sizes ac
 
 ---
 
+## 4b. Round 3 — the 50-symbol universe (the decisive test)
+
+Same strategy, same code, same parameters. Only the universe changed: 5 symbols → 50, 702 qualifying trades instead of 94.
+
+| Variant | 5 symbols gross | **50 symbols gross** | 50 symbols net |
+|---|---:|---:|---:|
+| gap ≥0.3% | 6.87 | 3.29 | -10.01 |
+| gap ≥0.5% | 9.42 | 4.29 | -9.23 |
+| gap ≥0.75% | 16.50 | 8.26 | -5.79 |
+| gap ≥1.0% | 18.10 | 9.99 | -4.45 |
+| gap ≥1.5% | 27.87 | 10.82 | -3.95 |
+| fixed 2:1, gap ≥1.0% | 22.05 | 10.92 | -3.50 |
+| **gap ≥1.0% + RVOL ≥1.5** | **30.66** | **11.26** | **-3.49** |
+| gap ≥1.0% + trend | 17.91 | 7.83 | -6.61 |
+| trail 3.0 ATR, gap ≥1.0% | 21.34 | 9.55 | -4.88 |
+
+**Every variant is net negative.** Gross edge fell to roughly a third of the 5-symbol values.
+
+**The diagnosis — it was a lucky draw:**
+
+| Group | Trades | Gross bps | t | Net bps | t |
+|---|---:|---:|---:|---:|---:|
+| Original 5 symbols | 94 | +30.66 | +3.93 | **+15.78** | +2.02 |
+| The other 45 | 608 | +8.26 | +2.75 | **-6.47** | **-2.15** |
+| All 50 | 702 | +11.26 | +4.00 | **-3.49** | -1.24 |
+
+RELIANCE, TCS, HDFCBANK, INFY and SBIN happened to be a favourable sample. On the 45 names never used to develop the strategy, net edge is **significantly negative**. This is the cleanest possible demonstration of why 94 trades from 5 correlated names could not settle anything.
+
+**What survives:** the monotonic gap-size relationship is still there (3.29 → 4.29 → 8.26 → 9.99 → 10.82) and the gross t-stats are now *stronger* (up to 4.74) because the sample is 10× larger. The signal is real. But it **plateaus around 11 bps** instead of continuing to climb, so "trade even bigger gaps" does not rescue it — the 1.5% threshold is no better than 1.0%.
+
+**Muhurat sessions ruled out as a cause.** Excluding the two ceremonial sessions (2024-11-01, 2025-10-21) moves gross from 11.26 to 10.95 — no material effect.
+
+**Data quality confirmed clean on all 50:** no duplicates, no OHLC violations, zero gaps matching any split/bonus ratio (largest gap 10.15%, and 2025-04-07 recurs across many names, i.e. a genuine market-wide crash day). The only audit flag was `bad_open=2` on every symbol, which is Muhurat trading, not an error.
+
+### The economics — why 11 bps is not enough
+
+Gross edge is +11.26 bps. Realised cost at the sizes actually traded is 14.75 bps. Net bps/trade at various assumptions:
+
+| Position | 5 bps/leg (modelled) | 3 bps/leg | 2 bps/leg | 1 bps/leg |
+|---:|---:|---:|---:|---:|
+| ₹70,000 (actual median) | **-9.01** | -5.01 | -3.01 | -1.01 |
+| ₹100,000 | -6.99 | -2.99 | -0.99 | +1.01 |
+| ₹200,000 | -4.63 | -0.63 | +1.37 | +3.37 |
+| ₹500,000 | -3.22 | +0.78 | +2.78 | +4.78 |
+
+**Breakeven slippage at the actual traded size is 0.49 bps per leg** — essentially zero market impact, which is not achievable for a momentum breakout entry that crosses the spread into a moving market. At ~300 trades/year on ₹1 lakh positions: **-₹20,975/yr** at the modelled assumption, **-₹2,975/yr** even at an optimistic 2 bps/leg, **+₹3,025/yr** at a best case of 1 bps/leg.
+
+Turning this profitable requires simultaneously trading ₹2–5 lakh positions *and* achieving near-institutional execution — and the reward for getting both right is a few thousand rupees a year.
+
+---
+
 ## 5. The control test — gap direction does carry information
 
 The obvious alternative explanation for §4: big-gap, high-RVOL sessions are just *volatile* sessions, and an ATR trailing stop on a volatile day captures more range no matter which way you enter. If that were the whole story, the "edge" is a volatility artifact that will not survive live.
@@ -205,22 +260,40 @@ Large-cap, highly liquid NSE cash equity. No small/micro-caps, no options/deriva
 
 ---
 
-## 9. Go / no-go for Phase 2 — current scorecard
+## 9. Go / no-go for Phase 2 — FINAL: NO GO
 
-| # | Criterion | Status |
+| # | Criterion | Status on 50 symbols |
 |---|---|---|
-| 1 | Gross edge ≥ 30 bps/trade at 5 bps/leg slippage | **MET** — 30.66 bps on the best variant |
-| 2 | ≥ 200 trades in-sample, ≥ 50 out-of-sample, same sign | **NOT MET** — 94 in-sample, 0 out-of-sample |
-| 3 | t-stat > 2.81 on **net** per-trade edge, counting all variants | **NOT MET** — net t = 2.02 (gross t = 3.93 does clear it) |
-| 4 | Beats a randomized-entry benchmark | **MET** — beats 20/20 random-direction seeds, inverted control is -25 bps net (§5) |
-| 5 | Survives walk-forward without re-fitting between windows | **NOT TESTED** |
-| 6 | Zero overnight positions; §2 defects fixed | **MET** — all 8 fixed, invariants verified |
+| 1 | Gross edge ≥ 30 bps/trade at 5 bps/leg slippage | **FAILED** — 11.26 bps |
+| 2 | ≥ 200 trades in-sample, ≥ 50 out-of-sample, same sign | trades met (702), **sign FAILED** — net is negative |
+| 3 | t-stat > 2.81 on net per-trade edge | **FAILED** — net t = -1.24 (wrong sign) |
+| 4 | Beats a randomized-entry benchmark | **MET** — the edge is real, just too small |
+| 5 | Survives walk-forward without re-fitting | not run — moot, there is no positive edge to walk forward |
+| 6 | Zero overnight positions; defects fixed | **MET** |
 
-**3 of 6 met.** The two blocking gaps — sample size and net significance — are the same gap, and the 50-symbol universe is what closes it. Do not start Phase 2 on 94 trades.
+**The kill criterion has fired.** It was written as: *"if no variant clears ~25 bps gross, then intraday cash-equity breakout trading on Nifty large-caps does not support a retail cost structure, and the honest move is to stop."* The best variant on the full universe reaches 11.26 bps — **under half the threshold**, with every variant net negative.
 
-**Kill criterion — decide deliberately, don't drift.** If the widened-universe test doesn't hold ~25 bps gross with the sample size to prove it, then intraday cash-equity breakout trading on Nifty large-caps does not support a retail cost structure, and stopping is the correct outcome. Round 2 has moved this from "probably dead" to "genuinely open", but it has not settled it.
+**Recommendation: stop this strategy direction. Do not proceed to Phase 2.**
 
----
+The out-of-sample holdout was never touched and does not need to be — the in-sample result already fails.
+
+### What was actually established
+
+This is a real finding, not a failure to find one:
+
+1. **A genuine directional edge exists in gap continuation** — +11.26 bps gross, t = 4.00 over 702 trades, confirmed by a randomized-direction control that it beat 20/20, with the inverted variant mirroring it negatively. The signal is not noise and not a volatility artifact.
+2. **Retail Indian intraday costs exceed it.** ~14 bps round trip against ~11 bps of edge. The constraint that kills it is structural, not a modelling choice.
+3. **The binding constraint is the same-day exit.** Median daily range on these names is 142–192 bps, so every round trip spends ~8–10% of the entire day's available movement on costs. A strategy forced to close by 15:15 cannot amortise that over a larger move.
+
+### What would change the answer — scope decisions, not parameter tweaks
+
+None of these are "try another variant". Each changes the project's premise, so they are Ameen's call:
+
+- **Relax the same-day constraint.** Multi-day swing trading amortises the same ~14 bps over moves of several percent rather than a fraction of one. This directly attacks the binding constraint. It abandons "intraday" but keeps cash equity, no derivatives, no leverage risk overnight — a different risk profile that would need its own assessment.
+- **Materially cheaper execution.** Breakeven needs ~0.5 bps/leg slippage. Not reachable retail.
+- **Accept that the answer is no.** Two years of clean data across 50 stocks and 12 strategies is a solid, well-evidenced negative result. Stopping here costs nothing further and has already avoided losing real money on a strategy that backtested at +15.8 bps on a 5-symbol sample.
+
+**Do not respond to this by testing more intraday variants.** Every additional variant raises the multiple-testing bar and the effect being chased is ~11 bps against a ~14 bps wall. That is the drift this criterion was written to prevent.
 
 ## 10. Validation checklist
 

@@ -40,17 +40,13 @@ The ordering isn't random. **The top four all decide *which sessions to trade***
 
 Naive ORB in particular has **no edge at all** — not "an edge destroyed by costs". Its headline -56% two-year return is entirely toll: 388 trades × ~20 bps.
 
-### Round 2 — Dynamic Gap + RVOL Momentum
+### Round 2 — Dynamic Gap + RVOL Momentum (5 symbols)
 
 Trade only gapped sessions, enter in the gap direction at the opening-range extreme, hold with an ATR chandelier trailing stop, size by fixed-fractional risk.
 
-Gross edge rises **monotonically** with the gap threshold — 6.9 → 9.4 → 16.5 → 18.1 → 27.9 bps as it goes 0.3% → 1.5%. That's a mechanism, not a parameter spike: cost is fixed per trade, so edge has to be measured against how much movement the setup offers.
+On the original 5 symbols this looked strong: gross edge rose monotonically with the gap threshold, and the best variant (gap ≥1.0% + RVOL ≥1.5) reached **+30.7 bps gross / +15.8 bps net per trade** across 94 trades.
 
-Best variant (gap ≥1.0% + RVOL ≥1.5): **+30.7 bps gross, +15.8 bps net per trade.**
-
-### The control test
-
-Big-gap, high-RVOL days are also *volatile* days, and a trailing stop on a volatile day captures range regardless of direction. If that were the whole story, the edge is an artifact. Same days, same levels, same exits — only direction changes:
+It also passed a randomized-direction control decisively — same days, same levels, same exits, only direction changed:
 
 | Configuration | Trades | Gross bps | Net bps |
 |---|---:|---:|---:|
@@ -58,11 +54,38 @@ Big-gap, high-RVOL days are also *volatile* days, and a trailing stop on a volat
 | Random direction (mean, 20 seeds) | ~88 | +8.50 | -6.15 |
 | **Inverted — fade the gap** | 97 | **-10.95** | **-25.44** |
 
-Real beats **20/20** random seeds, and the result is roughly symmetric around the random baseline (+22 above, −19 below). A volatility artifact would show real ≈ inverted ≈ random.
+Real beat 20/20 random seeds, roughly symmetric around the random baseline. That ruled out "it's just volatility capture" — the directional signal is genuine.
 
-Honest split: random direction still earns +8.5 bps gross, so part of the raw edge really is volatility capture. Direction adds ~22 bps on top.
+### Round 3 — the same strategy on 50 symbols (the decisive test)
 
-**Status: not validated.** 94 trades, best-of-10 selected in-sample, no out-of-sample test. **3 of 6 go/no-go criteria met.** The blocker is sample size, which is why the next step is widening from 5 symbols to 50.
+94 trades from 5 correlated mega-caps cannot settle anything, so the universe was widened to the full Nifty 50 — 702 qualifying trades, same code, same parameters.
+
+**The result collapsed.**
+
+| Group | Trades | Gross bps | t | Net bps | t |
+|---|---:|---:|---:|---:|---:|
+| Original 5 symbols | 94 | +30.66 | +3.93 | **+15.78** | +2.02 |
+| The other 45 | 608 | +8.26 | +2.75 | **-6.47** | **-2.15** |
+| **All 50** | **702** | **+11.26** | **+4.00** | **-3.49** | -1.24 |
+
+The 5 original names were a favourable draw. On the 45 never used to develop the strategy, net edge is **significantly negative**. All 10 variants are net negative on the full universe.
+
+**What survives:** the gross edge is real and now *more* statistically solid (t = 4.00 on 702 trades), and the monotonic gap-size relationship holds. **It is simply smaller than the cost of trading it.**
+
+### Verdict: no go
+
+Gross edge +11.26 bps against a realised cost hurdle of ~14.75 bps.
+
+| Position | 5 bps/leg (modelled) | 3 bps/leg | 2 bps/leg | 1 bps/leg |
+|---:|---:|---:|---:|---:|
+| ₹70,000 (actual median) | **-9.01** | -5.01 | -3.01 | -1.01 |
+| ₹200,000 | -4.63 | -0.63 | +1.37 | +3.37 |
+
+Breakeven needs **0.49 bps/leg slippage** — effectively zero market impact, which a momentum breakout entry crossing the spread will never get. At ~300 trades/year on ₹1 lakh positions: **-₹20,975/yr** as modelled; **+₹3,025/yr** even in an unrealistic best case.
+
+**The project's pre-registered kill criterion fired, and the strategy direction was stopped.** No live money was risked on a strategy that backtested at +15.8 bps on a 5-symbol sample.
+
+The binding constraint is the **same-day exit**: median daily range is only 142–192 bps, so each round trip spends ~8–10% of the entire day's available movement on costs. A strategy forced flat by 15:15 can't amortise that over a bigger move.
 
 ---
 
