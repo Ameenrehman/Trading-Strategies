@@ -98,12 +98,23 @@ def run_portfolio(closes: pd.DataFrame,
     cost total, and summary stats.
     """
     closes = closes.sort_index()
-    if start is not None:
-        closes = closes.loc[pd.Timestamp(start):]
-    if end is not None:
-        closes = closes.loc[:pd.Timestamp(end)]
 
+    # `start` and `end` bound the TRADING window, not the data the signal sees.
+    #
+    # These used to truncate `closes` itself, which silently starved every
+    # lookback: a strategy needing 252+21 days of history and handed a 1-year
+    # slice selects nothing, holds cash, and reports a 0% CAGR that looks like
+    # a real result. It also biased any windowed comparison against the
+    # strategy and in favour of buy-and-hold, since buy-and-hold needs no
+    # warm-up. Full history stays available to signal_fn; only the dates we
+    # actually trade and mark to market are restricted.
     dates = closes.index
+    if start is not None:
+        dates = dates[dates >= pd.Timestamp(start)]
+    if end is not None:
+        dates = dates[dates <= pd.Timestamp(end)]
+    if len(dates) == 0:
+        raise ValueError(f"No trading dates in [{start}, {end}]")
     rebals = set(rebalance_dates(dates, rebalance))
 
     cash = float(initial_capital)
@@ -330,6 +341,32 @@ def summarise(equity: pd.Series, turnover: pd.DataFrame,
         "cost_drag_pct_yr": cost_drag * 100,
         "final_equity": equity.iloc[-1],
     }
+
+
+# The out-of-sample holdout, in months back from the last available bar.
+#
+# This exists as a shared constant because the first real-data run did NOT
+# honour it: test_momentum.py ran 2011-2026 end to end, so the headline result
+# and the recent-5-year criterion both spanned the window that was supposed to
+# be sealed. Nothing was *tuned* on it, but it was observed, and a holdout you
+# have looked at is no longer a holdout. Any script that reports a development
+# result must call split_holdout() rather than deciding for itself.
+HOLDOUT_MONTHS = 24
+
+
+def split_holdout(closes: pd.DataFrame, volumes: pd.DataFrame = None,
+                  months: int = HOLDOUT_MONTHS):
+    """
+    Split off the trailing holdout window.
+
+    Returns (dev_closes, dev_volumes, cutoff). Development work uses only the
+    dev frames; the holdout is spent exactly once, at the end, on a single
+    pre-committed configuration.
+    """
+    cutoff = closes.index[-1] - pd.DateOffset(months=months)
+    dev_c = closes.loc[closes.index <= cutoff]
+    dev_v = volumes.loc[volumes.index <= cutoff] if volumes is not None else None
+    return dev_c, dev_v, cutoff
 
 
 def load_daily(data_dir: Path = None, repair_corporate_actions: bool = True,

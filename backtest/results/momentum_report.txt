@@ -38,8 +38,8 @@ momentum 12-1 top20 +200DMA  14.99  29.22 19.73    1.42  -37.38    0.78    515.6
   A big gap vs the full window is a survivorship-bias signature.
 ========================================================================================================================
                     variant  years  CAGR%  vol%  Sharpe  maxDD%  Calmar  turn/yr%  hold(mo)  cost%/yr        final
- BENCHMARK equal-weight B&H   4.99  14.04 13.60    1.05  -21.86    0.64     17.88     67.13      0.05 1,927,632.69
-momentum 12-1 top20 +200DMA   4.99  16.08 18.91    0.90  -30.27    0.53    487.79      2.46      1.02 2,106,100.67
+ BENCHMARK equal-weight B&H   4.99  16.67 16.42    1.04  -22.87    0.73     18.58     64.58      0.05 2,159,718.47
+momentum 12-1 top20 +200DMA   4.99  25.59 21.95    1.17  -30.35    0.84    578.58      2.07      1.16 3,120,458.81
 
 ========================================================================================================================
   GO / NO-GO (criteria 1, 2, 6 — controls are in test_momentum_controls.py)
@@ -47,7 +47,7 @@ momentum 12-1 top20 +200DMA   4.99  16.08 18.91    0.90  -30.27    0.53    487.7
   1. Beats benchmark by >= 3%/yr : +12.18%/yr  [PASS]
   2a. Higher Sharpe              : 1.42 vs 1.07  [PASS]
   2b. Max drawdown no worse      : -37.4% vs -37.8%  [PASS]
-  6. Recent-5y edge              : +2.04%/yr  [FAIL]
+  6. Recent-5y edge              : +8.92%/yr  [PASS]
 
 ========================================================================================================================
   YEAR BY YEAR - where the edge actually comes from

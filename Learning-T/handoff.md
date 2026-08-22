@@ -12,11 +12,14 @@ Ameen is building an automated systematic trading system for the Indian stock ma
 
 - **Phase 0** — done. SmartAPI auth + TOTP working, venv running.
 - **Phase 1 (intraday) — COMPLETE AND REJECTED.** 12 strategies, 4 families, 50 Nifty stocks, 2 years of clean 5-minute data. A genuine directional edge was found (+11.26 bps gross, t = 4.00 over 702 trades, beating 20/20 randomized-direction controls) and shown to be **smaller than the ~14 bps it costs to trade**. Breakeven needed 0.49 bps/leg slippage. The pre-registered kill criterion fired. No money was risked.
-- **Phase 1b (delivery/CNC momentum) — CURRENT, first real result in.** 205 Nifty 200 symbols, 15.0 years of daily bars. 15/15 known-answer sanity checks pass.
+- **Phase 1b (delivery/CNC momentum) — CURRENT, first real result in.** 205 Nifty 200 symbols, 15.0 years of daily bars. 16/16 known-answer sanity checks pass.
   - **+12.18%/yr over equal-weight buy-and-hold after delivery costs** (29.22% vs 17.04% CAGR), Sharpe 1.42 vs 1.07, drawdown no worse.
   - **Controls passed 20/20** — momentum beat every random-selection seed, and the bottom decile is symmetrically worse. Same design that killed the intraday phase.
-  - **Criterion 6 FAILED**: only +2.04%/yr over the recent 5 years, with a lower Sharpe and worse drawdown. Momentum has underperformed for ~18 months (2025: −8.9% relative).
-  - **Verdict: not established. No capital.** Walk-forward (criterion 5) has not been run and the 24-month holdout is untouched.
+  - **Criterion 5 (walk-forward): PASS** — 7/9 out-of-sample windows, mean +17.07%/yr, t = 2.47, still +12.26%/yr excluding the best window.
+  - **Criterion 6 (recent 5 years): PASS at +8.92%/yr.** An earlier run reported this as a +2.04%/yr FAIL; that was a backtester defect, not the strategy.
+  - **Permutation test: 0 of 400** time-shuffled runs matched the real edge (z = 6.73), clearing the Bonferroni bar for 14 variants.
+  - **All six pre-registered criteria pass. Still not cleared for capital** — the holdout is compromised, slippage is assumed rather than measured, and survivorship bias cannot be removed by any backtest.
+  - **Most decision-relevant finding is negative:** picking the best in-sample variant each fold *lost* to the fixed baseline by 3.41%/yr across 9 windows. The 14-variant sweep was fitting noise; trade the pre-registered baseline.
 - **Data is now committed** — `data/daily/` (205 symbols × 15 yrs) and `data/intraday_5min/` (50 × 2 yrs). Everything reproduces with no network and no credentials.
 - **Phases 2–4** — decisions locked but need revisiting: dropping intraday removes most of the real-time engineering.
 - **Nothing has touched live markets.** No orders, no cloud resources, no paper trading. The out-of-sample holdout has never been touched.
@@ -50,15 +53,17 @@ Ameen is building an automated systematic trading system for the Indian stock ma
 
 ## Next step when resuming
 
-Phase 1b has produced a **strong but not validated** result. Two pre-registered criteria remain open, and they are the whole job:
+Phase 1b validation is **complete**. All six pre-registered criteria pass, plus a permutation test and a Bonferroni correction. Every remaining question needs something a backtest cannot supply.
 
-1. **Walk-forward** across the available history, no parameter re-fitting between windows (criterion 5, never run).
-2. **Understand the criterion 6 failure.** Momentum has underperformed the benchmark since 2025 (−8.9% relative that year, flat 2026). Determine whether that is a regime momentum survives — it has 6 losing years out of 16 in this sample — or a structural break. The year-by-year table in `test_momentum.py` is the starting point.
-3. Monte Carlo permutation test on the ranking.
-4. Apply the Bonferroni bar to the 14 variants tested so far.
-5. Resolve `GUJGASLTD` and `LTIM` in the scrip-master lookup; verify `nifty200.json` against the live NSE list.
-6. **Then, and only once, spend the 24-month holdout.**
+**Next is Phase 2 — paper trading forward.** It does two jobs at once:
 
-Do not deploy capital before 1, 2 and 6. The intraday phase looked convincing on 5 symbols and collapsed on 50 — that is the specific failure this sequence exists to prevent.
+1. It is the only genuinely out-of-sample test still available, because the holdout was observed before it was sealed (see `phase-1b` §6).
+2. It measures **slippage**, currently the largest unverified assumption in the whole model. The cost model assumes 5 bps/leg; the current buy list contains names trading near ₹14 where that could be badly optimistic.
+
+Mechanically it is light — no WebSocket, no intraday event loop. Run `live/generate_orders.py` on schedule, record what it says, and compare the next open's fills against `ref_price`.
+
+Smaller open items: resolve `GUJGASLTD` and `LTIM` in the scrip-master lookup; verify `nifty200.json` against the live NSE constituent list; decide whether the compromised holdout is worth re-cutting.
+
+Do not fund an account before paper trading has measured real slippage. The intraday phase looked convincing on 5 symbols and collapsed on 50 — that is the specific failure this sequence exists to prevent.
 
 Ask before starting — don't assume approval of a plan is approval to execute it.

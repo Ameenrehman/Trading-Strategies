@@ -199,7 +199,7 @@ The catch is that **delivery costs 2.1x intraday** — STT is 0.1% on *both* leg
 
 **Rebalance frequency is not turnover.** Measured on real data: monthly baseline = 516%/yr turnover and 0.94%/yr cost; daily with no rank buffer = 2,624%/yr and 4.85%/yr, giving up ~4.8%/yr of CAGR. With `--rank-buffer 20` a daily schedule turns over *less* than monthly (497%, 0.90%/yr), so a daily buy list is viable — it just requires the buffer.
 
-**Status: first real result in.** 205 Nifty 200 symbols, 15.0 years of daily bars, 15/15 known-answer sanity checks.
+**Status: first real result in.** 205 Nifty 200 symbols, 15.0 years of daily bars, 16/16 known-answer sanity checks.
 
 | | CAGR | Sharpe | Max DD | Turnover/yr | Cost/yr |
 |---|---:|---:|---:|---:|---:|
@@ -208,29 +208,33 @@ The catch is that **delivery costs 2.1x intraday** — STT is 0.1% on *both* leg
 | Random selection (mean, 20 seeds) | 15.38% | 0.95 | -37.1% | — | — |
 | Bottom decile by momentum | 12.21% | 0.75 | -41.8% | — | — |
 
-**Pre-registered go/no-go, scored:** (1) beat buy-and-hold by >=3%/yr after costs — **+12.18%/yr PASS**; (2) higher Sharpe, drawdown no worse — **PASS**; (3) beat >=19/20 random seeds — **20/20 PASS**; (4) bottom decile symmetrically worse — **PASS**; (5) survive walk-forward — **not yet run**; (6) hold up in the recent 5 years — **+2.04%/yr FAIL**.
+**Pre-registered go/no-go, scored:** (1) beat buy-and-hold by >=3%/yr after costs — **+12.18%/yr PASS**; (2) higher Sharpe, drawdown no worse — **PASS**; (3) beat >=19/20 random seeds — **20/20 PASS**; (4) bottom decile symmetrically worse — **PASS**; (5) survive walk-forward — **7/9 windows, +17.07%/yr, t=2.47, PASS**; (6) hold up in the recent 5 years — **+8.92%/yr PASS**.
 
-**Verdict: not established. No capital.** The kill criterion did not fire and the controls are convincing, but a criterion written before seeing the data failed, walk-forward has not run, and the 24-month holdout is untouched. The intraday phase looked convincing on 5 symbols and collapsed on 50 — that is the failure this sequence exists to prevent.
+**Permutation test:** shuffling the time-ordering of returns (preserving each symbol's distribution and each day's cross-section) collapses the edge from +15.92%/yr to a null centred on +0.41%. **0 of 400** shuffled runs matched the real edge; z = 6.73. Empirical p = 0.0025 clears the Bonferroni bar of 0.05/14 = 0.00357 on its own.
 
-**Two defects found once real data arrived:** (a) cost drag was computed against *initial* capital rather than the running book, overstating it 12x on a portfolio that compounded 42.8x — the equity curve was always correct, but every published cost table was wrong; (b) three symbols carried unadjusted corporate actions (ADANIENT demerger -80.9%, PATANJALI/Ruchi Soya relisting +406.2%, YESBANK moratorium -56.1%), which for a strategy ranking on trailing 12-month returns puts a phantom stock at the top or bottom of the ranking for twelve consecutive rebalances. Both are fixed and regression-tested.
+**The most decision-relevant result is negative.** Selecting the best in-sample variant at each walk-forward fold and applying it to the next unseen window **lost** to the fixed baseline: 3/9 windows, mean -3.41%/yr, with six different variants winning across nine folds. The 14-variant sweep was fitting noise. Trade the pre-registered baseline, not the sweep winner.
+
+**Verdict: all pre-registered criteria pass; still not cleared for capital.** Three reasons, none of which another backtest can address: the holdout was observed before it was sealed (the first real-data run had no holdout handling and spanned 2011-2026); slippage is assumed at 5 bps/leg and never measured; and survivorship bias is inherent to a universe defined by today's index membership. The intraday phase looked convincing on 5 symbols and collapsed on 50 — that is the failure this sequence exists to prevent.
+
+**Three defects found once real data arrived:** (a) cost drag was computed against *initial* capital rather than the running book, overstating it 12x on a portfolio that compounded 42.8x — the equity curve was always correct, but every published cost table was wrong; (b) three symbols carried unadjusted corporate actions (ADANIENT demerger -80.9%, PATANJALI/Ruchi Soya relisting +406.2%, YESBANK moratorium -56.1%), which for a strategy ranking on trailing 12-month returns puts a phantom stock at the top or bottom of the ranking for twelve consecutive rebalances. (c) `run_portfolio`'s `start`/`end` sliced the price history rather than the trading window, starving any lookback shorter than the window and silently reporting 0% CAGR -- this is what produced the earlier bogus "criterion 6 FAIL at +2.04%/yr". All three are fixed and regression-tested (16/16 sanity checks).
 
 Full detail: `Learning-T/phase-1b-delivery-momentum.md`.
 
 ## 7b. Immediate next step
 
-The data is fetched and committed; everything reproduces offline. Two pre-registered criteria remain open, and they are the whole job:
+Phase 1b validation is **complete** — all six criteria, plus permutation and Bonferroni. Everything reproduces offline. What remains cannot be answered by a backtest:
 
-1. **Walk-forward** across the available history, no re-fitting between windows (criterion 5).
-2. **Understand the criterion 6 failure** — momentum has underperformed since 2025 (-8.9% relative that year, flat 2026). Is that a regime it survives (6 losing years in 16), or a structural break?
-3. Monte Carlo permutation test; Bonferroni bar for the 14 variants tested.
-4. Resolve `GUJGASLTD` and `LTIM` in the scrip-master lookup; verify `nifty200.json` against the live NSE list.
-5. **Then, exactly once, spend the 24-month holdout.**
+1. **Paper trade forward.** It is the only genuinely out-of-sample test still available (the holdout was observed before it was sealed), and it measures **slippage** — the largest unverified assumption in the model. The cost model assumes 5 bps/leg; the current buy list holds names near Rs.14 where that may be badly optimistic.
+2. Resolve `GUJGASLTD` and `LTIM` in the scrip-master lookup; verify `nifty200.json` against the live NSE list.
+3. Decide whether the compromised holdout is worth re-cutting.
 
 ```bash
-python backtest/test_portfolio_sanity.py     # 15/15 or nothing else means anything
+python backtest/test_portfolio_sanity.py     # 16/16 or nothing else means anything
 python data/corporate_actions.py             # what gets repaired, and why
 python backtest/test_momentum.py             # main result + year-by-year
 python backtest/test_momentum_controls.py    # the controls
+python backtest/walk_forward.py              # criterion 5 + the selection test
+python backtest/test_permutation.py          # permutation + Bonferroni
 python live/generate_orders.py --force --dry-run --rank-buffer 20
 ```
 

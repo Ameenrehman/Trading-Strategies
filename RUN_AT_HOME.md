@@ -13,10 +13,12 @@ This document is what you run when the data needs to be **brought up to date** �
 No network, no `.env`, no fetch. This is the whole result:
 
 ```bash
-python backtest/test_portfolio_sanity.py       # 15/15, or nothing below means anything
+python backtest/test_portfolio_sanity.py       # 16/16, or nothing below means anything
 python data/corporate_actions.py               # what gets repaired in the price data, and why
 python backtest/test_momentum.py               # the main result + year-by-year
 python backtest/test_momentum_controls.py      # random and bottom-decile controls
+python backtest/walk_forward.py                # criterion 5 + the anti-overfitting test
+python backtest/test_permutation.py            # permutation test + Bonferroni
 python live/generate_orders.py --force --dry-run --rank-buffer 20   # today's buy list
 ```
 
@@ -95,8 +97,10 @@ In priority order:
 
 1. **Does momentum beat equal-weight buy-and-hold by ≥3%/yr after costs?** Currently **+12.18%/yr**. A long-only strategy making money proves nothing on its own — the market rises.
 2. **Do the controls pass?** Momentum must beat ≥19 of 20 random-selection seeds and the bottom decile must be symmetrically worse. Currently **20/20**, bottom decile at 12.21% vs 15.38% random. This is the analog of the randomized-direction test that decided the intraday phase.
-3. **Does the recent window agree with the full window?** It currently **does not** — +2.04%/yr over the last 5 years vs +12.18%/yr overall. Read the year-by-year table before drawing a conclusion: the edge is not concentrated in the early (most survivorship-biased) years, but momentum has genuinely underperformed since 2025.
-4. **What is the turnover?** Read `turn/yr%` and `cost%/yr`, not just CAGR.
+3. **Does the recent window agree with the full window?** **+8.92%/yr** over the last 5 years vs +12.18%/yr overall. Read the year-by-year table alongside it: the edge is not concentrated in the early (most survivorship-biased) years, but momentum has genuinely underperformed since 2025 (−8.9% relative that year, flat 2026).
+4. **Does walk-forward hold?** 7 of 9 out-of-sample windows won, mean +17.07%/yr, t = 2.47. Note the second half of that script: picking the best in-sample variant each fold **lost** to the fixed baseline by 3.41%/yr, which is why the pre-registered baseline is what gets traded.
+5. **Does the permutation test clear the Bonferroni bar?** 0 of 400 time-shuffled runs matched the real edge; z = 6.73.
+6. **What is the turnover?** Read `turn/yr%` and `cost%/yr`, not just CAGR.
 
 ## Choosing a schedule
 
@@ -119,4 +123,10 @@ Naive daily rebalancing gives up ~4.8%/yr churning names that oscillate across t
 python live/generate_orders.py --rebalance D --rank-buffer 20 --dry-run
 ```
 
-**Do not touch the out-of-sample holdout.** The most recent 24 months are reserved for exactly one test at the very end, and it is still clean.
+## The holdout — read this before quoting any number
+
+The trailing 24 months were supposed to stay sealed until exactly one final test. **They did not.** The first real-data run had no holdout handling at all and spanned 2011–2026, so that window was observed in the headline, in the recent-5-year row and in the year-by-year table.
+
+Nothing was *tuned* on it, which makes this weak contamination rather than fatal — but a holdout you have looked at is no longer a holdout. `split_holdout()` in `backtest/portfolio.py` now enforces the boundary in code, and both `walk_forward.py` and `test_permutation.py` respect it.
+
+**The honest remaining out-of-sample test is forward time — paper trading — not a re-labelled slice of history.**

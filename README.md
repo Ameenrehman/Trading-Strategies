@@ -5,7 +5,7 @@ Systematic NSE equity strategies tested against a realistic Indian cost model �
 Two parts, in order:
 
 1. **Intraday** — 12 strategies, tested, **rejected**. A genuine edge was found and shown to be smaller than its own trading costs.
-2. **Delivery / CNC momentum** — the current work. Run on 15 years of real data: **+12.18%/yr over buy-and-hold after costs, 20/20 controls passed — but one pre-registered criterion failed.**
+2. **Delivery / CNC momentum** — the current work. Run on 15 years of real data: **+12.18%/yr over buy-and-hold after costs, all six pre-registered criteria passed.** Not yet traded, on paper or otherwise.
 
 **Scope:** long-only NSE cash equity. No options, no derivatives, no small-caps.
 
@@ -72,7 +72,7 @@ Holding longer attacks that constraint directly, because moves scale with roughl
 
 **Exits:** no stop-loss, no take-profit. The rebalance *is* the exit — a name is sold when it drops out of the top 20 or falls below its 200-DMA. Winners are allowed to run, which is where momentum's return comes from, and the 200-DMA filter is the systematic stop. Hard stops, daily trend exits and rank buffers are implemented as *testable options* rather than assumptions.
 
-**Status:** run on real data — 205 Nifty 200 symbols, 15.0 years of daily bars (2011-08-24 → 2026-08-21). 15/15 sanity checks pass. **5 of 6 pre-registered criteria pass; criterion 6 fails.**
+**Status:** run on real data — 205 Nifty 200 symbols, 15.0 years of daily bars (2011-08-24 → 2026-08-21). 16/16 sanity checks pass. **5 of 6 pre-registered criteria pass; criterion 6 fails.**
 
 ### Result, after delivery costs
 
@@ -85,18 +85,63 @@ Holding longer attacks that constraint directly, because moves scale with roughl
 
 **+12.18%/yr over the benchmark, and the controls hold:** momentum beat **20 of 20** random-selection seeds, and the bottom decile is symmetrically worse than random. That mirror pattern is what separates a real ranking effect from equity beta plus a trend filter.
 
-**But criterion 6 failed.** Over the most recent 5 years the edge is only **+2.04%/yr**, with a *lower* Sharpe (0.90 vs 1.05) and a *worse* drawdown (−30.3% vs −21.9%) than simply holding the universe.
+**Over the most recent 5 years the edge is +8.92%/yr** (25.59% vs 16.67%), with a higher Sharpe (1.17 vs 1.04) but a worse drawdown (−30.4% vs −22.9%).
 
-Year by year, the picture is less bleak than that one window suggests — but it is not clean either:
+> An earlier version of this README reported that window as +2.04%/yr and a criterion-6 failure. That was a bug, not a result: `run_portfolio`'s `start` parameter sliced the *price history* rather than the trading window, so momentum sat in cash for the first ~14 months of any short window while buy-and-hold was invested from day one. Fixed, and pinned by sanity check 16.
+
+Year by year, the record is strong but not uniform:
 
 | Period | Mean annual edge | Years won |
 |---|---:|---:|
 | 2012–2018 | +9.0%/yr | 4/8 |
 | 2021–2026 | +16.8%/yr | 4/6 |
 
-The edge is **not** concentrated in the early years, which is the opposite of what survivorship bias predicts — that bias inflates the oldest data most, since today's index membership excludes companies that failed along the way. What the 5-year window actually catches is that it begins in August 2021, missing most of that year's +50% relative run while fully including 2025 (−8.9%) and a flat 2026. Momentum has genuinely underperformed for roughly the last 18 months.
+The edge is **not** concentrated in the early years, which is the opposite of what survivorship bias predicts — that bias inflates the oldest data most, since today's index membership excludes companies that failed along the way. But momentum has genuinely underperformed for the last ~18 months: 2025 was −8.9% relative and 2026 is flat. That is momentum's documented failure mode, and it is what a live deployment would currently be sitting through.
 
-**Verdict: not established.** The full-window result is strong and the controls are convincing, but a criterion written down before seeing the data failed, and no amount of after-the-fact reasoning changes that. Walk-forward and the untouched 24-month holdout come next.
+### Walk-forward (criterion 5)
+
+Nine non-overlapping 1-year out-of-sample windows on the development period, holdout sealed:
+
+| | |
+|---|---|
+| Windows won | **7 / 9** |
+| Mean out-of-sample edge | **+17.07%/yr** |
+| Median edge | +8.95%/yr |
+| t-stat across windows | **2.47** |
+| Worst window | −4.87%/yr |
+| Mean excluding the single best window | +12.26%/yr |
+
+**The more useful half of this test asks whether the 14-variant sweep found anything real.** In each fold the best candidate by in-sample Sharpe was selected and applied to the next unseen window:
+
+| | |
+|---|---|
+| Selection beat the fixed baseline in | **3 / 9 windows** |
+| Mean (selected − baseline) | **−3.41%/yr** |
+
+Chasing the best in-sample variant **lost** to simply trading the configuration written down before any data was seen. The sweep was fitting noise. That is a genuinely useful negative result: it removes any temptation to trade the sweep winner, and it is why the baseline stays the baseline.
+
+### Permutation test and multiple-testing correction
+
+The random-selection control asks whether picking the *top 20* beats picking *20 at random*. It cannot tell you whether momentum exists in the data at all. The permutation test does.
+
+Method: shuffle the **order** of the daily cross-sectional return matrix, using one common permutation for every symbol. That preserves each symbol's return distribution, each day's cross-sectional structure and correlations, the calendar, the universe and every listing date — and destroys exactly one thing, the temporal sequence. Strategy *and* benchmark are re-run on each shuffled path and the statistic is their difference.
+
+| | |
+|---|---:|
+| Real edge (development period) | **+15.92%/yr** |
+| Null mean / std | +0.41% / 2.30 |
+| Null 5th / 50th / 95th percentile | −3.44% / +0.29% / +4.33% |
+| Null maximum over 400 runs | +7.85% |
+| Shuffled runs matching or beating the real edge | **0 / 400** |
+| z-score | **6.73** |
+| Empirical p | 0.0025 (at the 1/(n+1) floor) |
+| Normal-approx p | 8.5 × 10⁻¹² |
+
+With 14 variants swept, the Bonferroni bar is 0.05 / 14 = **0.00357**. The empirical p-value clears it on its own — which is why 400 permutations were run rather than 200, since 200 floors the empirical value at 0.005 and could not have resolved the bar.
+
+The null centring near zero (+0.41%) is itself the check that the test is built correctly: destroy the time-ordering and the edge disappears.
+
+**What this establishes:** the ordering of returns carries information a trailing-return ranking can exploit, and the edge is not an artifact of the universe, the cost model or the calendar. **What it does not:** that the edge persists, or that it survives survivorship bias — every permutation draws on the same 205 symbols chosen by today's index membership, so that bias sits in the null and the real run alike.
 
 ### Unadjusted corporate actions
 
@@ -138,15 +183,22 @@ Written down before any result was seen, and scored honestly:
 | 1 | Beats equal-weight buy-and-hold by ≥3%/yr CAGR after costs | +12.18%/yr | **PASS** |
 | 2 | Higher Sharpe, max drawdown no worse | 1.42 vs 1.07; −37.4% vs −37.8% | **PASS** |
 | 3 | Beats ≥19 of 20 random-selection seeds | 20/20 | **PASS** |
+| — | *Permutation test (added, not pre-registered)* | 0/400, p < Bonferroni bar | **PASS** |
 | 4 | Bottom-decile control clearly worse | 12.21% vs 15.38% random | **PASS** |
-| 5 | Survives walk-forward without re-fitting | not yet run | pending |
-| 6 | Holds up in the recent-5-year subsample | +2.04%/yr | **FAIL** |
+| 5 | Survives walk-forward without re-fitting | 7/9 windows, +17.07%/yr, t=2.47 | **PASS** |
+| 6 | Holds up in the recent-5-year subsample | +8.92%/yr | **PASS** |
 
 The 3% margin isn't arbitrary: applying today's index membership to years of history excludes companies that failed, and that bias is plausibly worth ~2%/yr.
 
 **Kill criterion:** if it can't beat buy-and-hold by 3%/yr after costs, stop. An index fund is then the right answer.
 
-The kill criterion did not fire — but criterion 6 did fail, and the 24-month out-of-sample holdout is still untouched. Nothing here is validated until walk-forward runs and that holdout is spent exactly once.
+**All six pre-registered criteria now pass.** That is a real result and it was not guaranteed — the intraday phase failed the equivalent test and was killed.
+
+It is still not a licence to deploy capital, for three specific reasons:
+
+1. **The holdout is compromised.** It was supposed to be sealed until the end. The first real-data run had no holdout handling at all and spanned 2011–2026, so the trailing 24 months were observed — including in the year-by-year table. Nothing was *tuned* on them, but a holdout you have looked at is no longer a holdout. `split_holdout()` now enforces the split, and walk-forward and the permutation test respect it. The honest remaining out-of-sample test is **forward** time, not a re-labelled slice of history.
+2. **Slippage is assumed, not measured.** 5 bps/leg is a guess. Measuring it takes paper trading, not another backtest.
+3. **Survivorship bias cannot be removed by any test here.** Every window, every permutation and every control draws from the same 205 symbols chosen by *today's* index membership.
 
 ---
 
@@ -180,8 +232,10 @@ strategies/
   gap_rvol_strategy.py   # gap + RVOL momentum (rejected)
 backtest/
   costs.py               # intraday AND delivery cost models
+  walk_forward.py        # criterion 5 + the variant-selection overfitting test
+  test_permutation.py    # Monte Carlo permutation + Bonferroni
   portfolio.py           # rebalancing portfolio backtester
-  test_portfolio_sanity.py   # 15 known-answer checks — run this first
+  test_portfolio_sanity.py   # 16 known-answer checks — run this first
   test_momentum.py           # momentum vs benchmark, variants, year-by-year
   test_momentum_controls.py  # random-selection and bottom-decile controls
   verify_fixes.py            # intraday invariant checks
@@ -224,10 +278,12 @@ python backtest/test_gap_controls.py   # the control that killed it
 The delivery/momentum results reproduce too — `data/daily/` is committed:
 
 ```bash
-python backtest/test_portfolio_sanity.py    # 15/15 before trusting anything
+python backtest/test_portfolio_sanity.py    # 16/16 before trusting anything
 python data/corporate_actions.py            # what gets repaired, and why
 python backtest/test_momentum.py            # the main result
 python backtest/test_momentum_controls.py   # the controls
+python backtest/walk_forward.py             # criterion 5 + the anti-overfitting test
+python backtest/test_permutation.py         # permutation test + Bonferroni
 python live/generate_orders.py --force --dry-run --rank-buffer 20   # today's buy list
 ```
 

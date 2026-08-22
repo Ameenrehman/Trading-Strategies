@@ -1,0 +1,70 @@
+====================================================================================================
+  WALK-FORWARD VALIDATION — criterion 5
+====================================================================================================
+  Full data      : 2011-08-24 -> 2026-08-21
+  Holdout sealed : last 24 months (2024-08-21 -> 2026-08-21) — NOT used below
+  Development    : 2011-08-24 -> 2024-08-21 (13.0 years)
+  Universe       : 205 symbols
+  Folds          : 9 x 1-year out-of-sample windows
+
+====================================================================================================
+  A. STABILITY — the pre-registered baseline, never re-fitted
+====================================================================================================
+  window                       momentum%   benchmark%     edge%   Sharpe   maxDD%
+  2015-08-24 -> 2016-08-24          14.5         19.3      -4.9     0.93    -20.6   <- lost
+  2016-08-24 -> 2017-08-24          27.0         18.0      +8.9     1.35    -16.9
+  2017-08-24 -> 2018-08-24          27.6         14.5     +13.1     1.54    -13.0
+  2018-08-24 -> 2019-08-24         -13.3        -11.5      -1.8    -0.86    -18.7   <- lost
+  2019-08-24 -> 2020-08-24          31.3         25.5      +5.8     1.14    -37.5
+  2020-08-24 -> 2021-08-24         126.3         70.8     +55.5     4.11     -9.6
+  2021-08-24 -> 2022-08-24          44.8         10.1     +34.7     1.69    -22.5
+  2022-08-24 -> 2023-08-24          24.7         20.3      +4.4     1.51    -12.7
+  2023-08-24 -> 2024-08-21          84.9         47.1     +37.8     2.35    -14.3
+
+  Windows won        : 7/9
+  Mean edge          : +17.07%/yr
+  Median edge        : +8.95%/yr
+  t-stat on windows  : 2.47  (distinguishable from zero)
+  Worst window       : -4.87%/yr
+  Mean without the single best window: +12.26%/yr (still positive)
+
+====================================================================================================
+  B. SELECTION — does picking the best in-sample variant help out-of-sample?
+====================================================================================================
+  Each fold: rank all 11 candidates on data up to the fold start, take the
+  best by Sharpe, then apply THAT choice to the unseen window.
+
+  window                    selected variant                  sel%   base%  bench%  sel-base
+  2015-08-24 -> 2016-08-24  DAILY + rank buffer 10            24.6    14.5    19.3     +10.2
+  2016-08-24 -> 2017-08-24  DAILY + rank buffer 10            18.9    27.0    18.0      -8.0
+  2017-08-24 -> 2018-08-24  top 30                            21.6    27.6    14.5      -6.0
+  2018-08-24 -> 2019-08-24  DAILY + rank buffer 20           -18.0   -13.3   -11.5      -4.7
+  2019-08-24 -> 2020-08-24  rank buffer 10                    28.7    31.3    25.5      -2.6
+  2020-08-24 -> 2021-08-24  6-1 momentum                     140.2   126.3    70.8     +13.8
+  2021-08-24 -> 2022-08-24  6-1 momentum                      26.2    44.8    10.1     -18.6
+  2022-08-24 -> 2023-08-24  6-1 momentum                       5.4    24.7    20.3     -19.2
+  2023-08-24 -> 2024-08-21  WEEKLY + rank buffer 10           89.4    84.9    47.1      +4.5
+
+  Selection beat the fixed baseline in 3/9 windows
+  Mean(selected - baseline) : -3.41%/yr
+  Distinct variants chosen  : 6 (6-1 momentum, DAILY + rank buffer 10, DAILY + rank buffer 20...)
+
+  READING: chasing the best in-sample variant did NOT pay out-of-sample.
+  The 14-variant sweep was fitting noise, and the pre-registered
+  baseline is the honest configuration to trade. This is the useful
+  outcome — it removes the temptation to trade the sweep winner.
+
+====================================================================================================
+  CRITERION 5 — survives walk-forward without re-fitting
+====================================================================================================
+  Baseline positive in a majority of windows : 7/9  [PASS]
+  Mean out-of-sample edge > 0                : +17.07%/yr  [PASS]
+  Not carried by one window                  : [PASS]
+
+  CRITERION 5: PASS
+
+  Note: these windows are out-of-sample in TIME but drawn from the same
+  205-symbol universe selected by TODAY's index membership. Walk-forward
+  cannot remove survivorship bias — only forward paper trading can.
+
+Saved: C:\Users\ameenur.r.OMAEMIRATES\Downloads\Learning-T\backtest\results\walk_forward_stability.csv

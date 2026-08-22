@@ -22,7 +22,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from backtest.portfolio import run_portfolio, rebalance_dates
 from backtest.costs import delivery_one_way_cost, delivery_cost_bps
-from strategies.momentum_xs import MomentumConfig, momentum_scores, select
+from strategies.momentum_xs import (MomentumConfig, momentum_scores, select,
+                                    make_signal_fn)
 
 PASS, FAIL = "PASS", "FAIL"
 results = []
@@ -211,6 +212,24 @@ def main():
     check("cost drag independent of portfolio growth", 0.8 < ratio < 1.25,
           f"reported {reported:.3f}%/yr vs expected {expected:.3f}%/yr "
           f"(book grew {growth:.1f}x)")
+
+    # --- 16. start/end bound TRADING, not the data the signal sees ---------
+    # Regression: start/end used to slice `closes` itself, starving every
+    # lookback. A strategy needing 252+21 days of history, handed a 1-year
+    # window, then selected nothing and reported a 0% CAGR that reads as a
+    # real result — and biased every windowed comparison in favour of
+    # buy-and-hold, which needs no warm-up.
+    late_start = closes.index[-260]
+    cfg_w = MomentumConfig(n_positions=3, trend_ma=0, min_history_days=250,
+                           min_adv=0)
+    r_win = run_portfolio(closes, make_signal_fn(cfg_w, volumes),
+                          initial_capital=1_000_000, start=late_start)
+    n_tr = len(r_win["trades"])
+    traded_dates_ok = (r_win["equity"].index[0] >= late_start)
+    check("windowed run still sees pre-window history", n_tr > 0 and traded_dates_ok,
+          f"{n_tr} trades from {r_win['equity'].index[0].date()} "
+          f"(0 would mean the lookback was starved)")
+
 
     print("\n" + "=" * 78)
     n_pass = sum(1 for _, ok, _ in results if ok)

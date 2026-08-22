@@ -20,7 +20,7 @@ Key facts that shape this whole plan:
 |---|---|---|
 | `phase-0-setup.md` | Accounts, API keys, local Python environment | **Complete** — SmartAPI auth + TOTP working, data pipeline built |
 | `phase-1-backtesting.md` | Intraday strategy design + backtesting | **COMPLETE — rejected.** 12 strategies, 50 stocks, 2 yrs. A real edge was found (+11.26 bps gross, t=4.00) and shown to be smaller than the ~14 bps cost of trading it. Kill criterion fired. |
-| `phase-1b-delivery-momentum.md` | **Delivery/CNC momentum — current focus** | **First real result in.** 205 symbols x 15 yrs. +12.18%/yr over buy-and-hold after costs, 20/20 controls passed, 15/15 sanity checks. Criterion 6 (recent-5y) FAILED at +2.04%/yr. Verdict: not established — walk-forward and the 24-month holdout still outstanding. |
+| `phase-1b-delivery-momentum.md` | **Delivery/CNC momentum — current focus** | **Validation complete.** 205 symbols x 15 yrs. +12.18%/yr over buy-and-hold after costs. All 6 pre-registered criteria PASS, plus 0/400 permutation test (z=6.73) clearing the Bonferroni bar. 16/16 sanity checks. Not cleared for capital: holdout compromised, slippage unmeasured. Next is paper trading. |
 | `phase-2-paper-trading.md` | Local simulated live trading, no real orders | Waiting on Phase 1 |
 | `phase-3-live-trading.md` | Real broker orders, static IP, guardrails | Waiting on Phase 2 |
 | `phase-4-hardening.md` | Always-on service, reconnect logic, scaling | Waiting on Phase 3 |

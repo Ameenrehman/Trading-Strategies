@@ -1,0 +1,2 @@
+real_edge_pct,real_momentum_pct,real_benchmark_pct,n_perm,null_mean,null_std,n_ge,p_empirical,z,p_normal,n_variants,bonferroni_bar,verdict
+15.917763220621463,35.36445105147526,19.446687830853794,400,0.40919792779738456,2.3047269894485756,0,0.0024937655860349127,6.7290248970159485,8.54019153766235e-12,14,0.0035714285714285718,PASS on the empirical p-value alone
