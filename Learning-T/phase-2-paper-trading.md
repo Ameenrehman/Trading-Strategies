@@ -1,5 +1,30 @@
 # Phase 2 — Local Paper Trading
 
+> **REVISED for delivery/CNC — most of this phase just got much smaller.**
+>
+> This was written for intraday: a 9:15–3:30 event loop, simulated fills against
+> a live tick feed, a WebSocket, and an intraday `paper_broker.py`. **None of
+> that is needed for a monthly-rebalanced delivery strategy.**
+>
+> What Phase 2 actually is now:
+> 1. Run `live/generate_orders.py` after the close on each rebalance date. It
+>    already exists and shares `select()` with the backtest.
+> 2. Record the orders it produces, and what they *would* have filled at the
+>    next open.
+> 3. Track the paper portfolio for a few rebalance cycles against the backtest's
+>    expectation.
+>
+> **The one thing this phase must actually measure: real slippage.** The backtest
+> assumes 5 bps/leg. `generate_orders.py` prints `ref_price` (the rebalance
+> close); the gap between that and where you could actually have filled at the
+> next open IS the slippage assumption being tested. That is the main open
+> question the backtest cannot answer, and it is worth more than everything
+> else in this phase.
+>
+> No `paper_broker.py`, no `engine/runner.py`, no WebSocket. The material below
+> is kept for reference on broker choice and the no-static-IP reasoning, both of
+> which still hold.
+
 Goal: forward-test the strategy from Phase 1 against real live prices, with simulated fills, on your own PC — no real orders, no static IP needed.
 
 ## Decisions (already locked, listed here for reference)

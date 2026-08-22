@@ -8,16 +8,18 @@ Ameen is building an automated intraday trading system for the Indian stock mark
 
 ## Current status (as of 2026-08-22)
 
-- **Phase 0 (accounts & environment)** — **done**. Angel One SmartAPI auth + automated TOTP working, `.env` configured, local venv built. (The venv was created on a different machine and was repointed to the local Python 3.13 install — see phase-1 §11.)
-- **Phase 1 (backtesting)** — **implemented, first results round in, nothing validated yet.** 2 years of clean 5-min data for 5 large-caps; 8 strategy variants tested. **None has a post-cost edge** — the best gross (pre-cost) edge is 7.7 bps/trade against a 20.6 bps cost hurdle, and naive ORB has no edge at all (gross -0.88 bps, t=-0.48). Note `backoff_handoff.md` ranks strategies by total return, which mostly measures trade frequency — read `phase-1-backtesting.md` §1 for the corrected per-trade analysis before acting on it. One open lead: edge rises monotonically with gap size (§4). Eight implementation defects found and listed in §2, unfixed.
-- **Phase 2 (paper trading), Phase 3 (live trading), Phase 4 (hardening)** — high-level architecture decisions are locked (broker, bridge approach, hosting), but haven't been through the same deep-research pass as Phase 0/1 yet. Expect to repeat the "research → narrow to one flow → lock it in" process on these before implementing them.
-- **Nothing has touched live markets** — no orders placed, no cloud resources created, no paper trading. Backtesting is local and read-only. The 6-month out-of-sample holdout has not been touched and must stay that way until the end of Phase 1.
+- **Phase 0** — done. SmartAPI auth + TOTP working, venv running.
+- **Phase 1 (intraday) — COMPLETE AND REJECTED.** 12 strategies, 4 families, 50 Nifty stocks, 2 years of clean 5-minute data. A genuine directional edge was found (+11.26 bps gross, t = 4.00 over 702 trades, beating 20/20 randomized-direction controls) and shown to be **smaller than the ~14 bps it costs to trade**. Breakeven needed 0.49 bps/leg slippage. The pre-registered kill criterion fired. No money was risked.
+- **Phase 1b (delivery/CNC momentum) — CURRENT.** Cost model, portfolio backtester, strategy, controls and order generation are all built and pass 14/14 known-answer sanity checks. **No real-data result yet** — blocked on the daily fetch.
+- **Phases 2–4** — decisions locked but need revisiting: dropping intraday removes most of the real-time engineering.
+- **Nothing has touched live markets.** No orders, no cloud resources, no paper trading. The out-of-sample holdout has never been touched.
 
 ## Read in this order
 
 1. `00-overview.md` — context, architecture diagrams, folder structure, master decisions table
 2. `phase-0-setup.md` — accounts & environment (do this first, it's a hard blocker for Phase 1 too)
-3. `phase-1-backtesting.md` — current focus, fully detailed
+3. `phase-1b-delivery-momentum.md` — **current focus**
+4. `phase-1-backtesting.md` — the completed intraday phase and why it was rejected
 4. `phase-2-paper-trading.md` / `phase-3-live-trading.md` / `phase-4-hardening.md` — locked decisions, lighter detail
 
 ## Key decisions already made (don't re-litigate unless something concretely breaks)

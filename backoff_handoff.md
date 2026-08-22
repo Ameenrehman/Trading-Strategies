@@ -2,7 +2,7 @@
 
 **Date**: 2026-08-22
 **Project**: Automated NSE Intraday Trading Bot (Cash-Equity, Large-Cap, Zero Derivatives)
-**Status**: Phase 0 complete | **Phase 1 COMPLETE — no strategy clears its costs. Kill criterion fired; recommendation is to stop this direction.**
+**Status**: Phase 0 complete | **Phase 1 (intraday) COMPLETE — rejected** | **Phase 1b (delivery/CNC momentum) built, awaiting data**
 
 > Supersedes the original version of this file, which ranked strategies by total return. That metric mostly measured trade frequency and led to two wrong conclusions (see §2). The full reasoning lives in `Learning-T/phase-1-backtesting.md` — this file is the summary.
 
@@ -149,14 +149,22 @@ Learning-T/
 │   ├── 00-overview.md
 │   ├── handoff.md              # read first in a fresh session
 │   ├── phase-0-setup.md
-│   ├── phase-1-backtesting.md  # FULL detail: results, defects, validation, go/no-go
+│   ├── phase-1-backtesting.md  # intraday: results, defects, why it was rejected
+│   ├── phase-1b-delivery-momentum.md  # CURRENT: delivery momentum
 │   └── phase-2..4-*.md
 ├── strategies/
+│   ├── momentum_xs.py          # cross-sectional momentum + trend filter (CURRENT)
 │   ├── session.py              # session structure, day-aware ATR, risk sizing
-│   ├── orb_strategy.py         # Candidate A, post-fix
-│   └── gap_rvol_strategy.py    # Dynamic Gap + RVOL Momentum (round 2)
+│   ├── orb_strategy.py         # Candidate A, post-fix (rejected)
+│   └── gap_rvol_strategy.py    # Dynamic Gap + RVOL Momentum (rejected)
+├── live/
+│   └── generate_orders.py      # the actual buy/sell list, shares backtest signal code
 ├── backtest/
-│   ├── costs.py                # Indian cost model + per-order commission callable
+│   ├── costs.py                # intraday AND delivery cost models
+│   ├── portfolio.py            # monthly-rebalance portfolio backtester
+│   ├── test_portfolio_sanity.py    # 14 known-answer checks - run first
+│   ├── test_momentum.py            # momentum vs benchmark
+│   ├── test_momentum_controls.py   # random-selection / bottom-decile controls
 │   ├── verify_fixes.py         # before/after + invariant checks
 │   ├── test_gap_rvol.py        # gap threshold / filter sweep
 │   ├── test_gap_controls.py    # randomized-direction controls
@@ -164,8 +172,43 @@ Learning-T/
 │   ├── run_backtest.py         # ORB CLI runner
 │   └── results/
 └── data/
-    ├── fetch_universe.py       # chunked 50-symbol fetcher + audit
-    ├── nifty50.json            # universe list (VERIFY against live NSE list)
+    ├── fetch_universe.py       # chunked fetcher, 5-min AND daily, + audit
+    ├── nifty200.json           # delivery universe (VERIFY against live NSE list)
+    ├── nifty50.json            # intraday universe
     ├── fetch_historical.py     # original day-by-day fetcher
     └── *_5min.csv              # 5 symbols so far
-```
+```## 7. Where the project went next — delivery (CNC), not intraday
+
+The intraday result diagnosed its own constraint precisely: **the same-day exit**. Median daily range is 142–192 bps, so each round trip burns 8–10% of the day's entire available movement. Holding longer attacks that directly, because moves scale with roughly sqrt(time) while cost is paid once per trade.
+
+The catch is that **delivery costs 2.1x intraday** — STT is 0.1% on *both* legs instead of 0.025% sell-only, and DP charges add a flat Rs.20 per scrip on the sell. So 2-5 day swings are the worst of both worlds. The viable zone is multi-week holds:
+
+| Hold | Median move | Delivery cost as % of move |
+|---:|---:|---:|
+| 1 day | 82 bps | 47.4% |
+| 20 days | 418 bps | 11.1% |
+| ~70 days | ~800 bps | **~6%** |
+
+**Strategy:** 12-1 cross-sectional momentum (12-month return skipping the recent month), filtered to names above their 200-DMA, top 20 equal-weight, monthly rebalance on the Nifty 200.
+
+**Exits:** no stop-loss, no take-profit — the rebalance is the exit. A name is sold when it drops out of the top 20 or falls below its 200-DMA. The 200-DMA filter is the systematic stop; hard stops and daily trend exits are implemented as *testable options*, not assumptions.
+
+**Annual cost drag: ~1.3-2.8%/yr** depending on turnover and capital, against a momentum premium historically in the high single digits. That is the structural difference from intraday, where cost exceeded the entire edge. Minimum viable capital is around Rs.5L.
+
+**Rebalance frequency is not turnover.** Measured: monthly + rank buffer = 216%/yr turnover and 1.32%/yr cost; naive daily = 2,161%/yr and **9.52%/yr**, which is more than the whole expected premium. If you want a daily list, pair it with a rank buffer.
+
+**Status:** cost model, portfolio backtester, strategy, controls and order generation are built and pass **14/14 known-answer sanity checks** on synthetic data. That process caught three real defects before any market data was involved. **No real-data result yet.**
+
+**Pre-registered go/no-go:** beat equal-weight buy-and-hold by >=3%/yr after costs, higher Sharpe, drawdown no worse, beat >=19/20 random-selection seeds, bottom decile symmetrically worse, survive walk-forward, hold up in the recent 5 years. **Kill criterion: if it can't beat buy-and-hold by 3%/yr, stop — an index fund is then the right answer.**
+
+Full detail: `Learning-T/phase-1b-delivery-momentum.md`.
+
+## 7b. Immediate next step
+
+**Fetch daily bars for the Nifty 200 from an unblocked network** — see `RUN_AT_HOME.md`. ~2,000 requests, ~15 minutes, ~15-20 MB.
+
+Then check the report for history depth (the main unknown — Angel One's daily data may only reach 2016-2017), unresolved symbols, and suspect gaps. Then run `test_portfolio_sanity.py` (must be 14/14), `test_momentum.py` and `test_momentum_controls.py`.
+
+**The out-of-sample holdout has never been touched. Keep it that way.**
+
+

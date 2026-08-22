@@ -2,7 +2,9 @@
 
 ## Context
 
-Building automated intraday trading for the Indian stock market (NSE): strategy design/backtesting → paper trading → live automatic order execution via a real broker — free tools only, runnable locally where possible.
+Building automated systematic trading for the Indian stock market (NSE): strategy design/backtesting → paper trading → live automatic order execution via a real broker — free tools only, runnable locally where possible.
+
+**The intraday phase is complete and was rejected** (see `phase-1-backtesting.md`). The project now targets **delivery/CNC cross-sectional momentum** with a monthly rebalance, which removes most of the real-time engineering below: no WebSocket feed, no 9:15–3:30 event loop, no MIS square-off race. A monthly strategy is a cron job that writes an order list.
 
 Key facts that shape this whole plan:
 
@@ -17,7 +19,8 @@ Key facts that shape this whole plan:
 | File | Covers | Status |
 |---|---|---|
 | `phase-0-setup.md` | Accounts, API keys, local Python environment | **Complete** — SmartAPI auth + TOTP working, data pipeline built |
-| `phase-1-backtesting.md` | Strategy design + historical backtesting | **In progress** — implemented; 8 variants backtested on 5 stocks x 2 yrs, **none has a post-cost edge**. Best gross edge 7.7 bps vs a 20.6 bps cost hurdle. One lead open (edge scales with gap size). |
+| `phase-1-backtesting.md` | Intraday strategy design + backtesting | **COMPLETE — rejected.** 12 strategies, 50 stocks, 2 yrs. A real edge was found (+11.26 bps gross, t=4.00) and shown to be smaller than the ~14 bps cost of trading it. Kill criterion fired. |
+| `phase-1b-delivery-momentum.md` | **Delivery/CNC momentum — current focus** | Built, 14/14 sanity checks pass. Awaiting the daily data pull. |
 | `phase-2-paper-trading.md` | Local simulated live trading, no real orders | Waiting on Phase 1 |
 | `phase-3-live-trading.md` | Real broker orders, static IP, guardrails | Waiting on Phase 2 |
 | `phase-4-hardening.md` | Always-on service, reconnect logic, scaling | Waiting on Phase 3 |
@@ -87,8 +90,10 @@ main.py              # entrypoint: `python main.py --mode backtest|paper|live`
 | Strategy research/charting | Locked | Python (TradingView stays out entirely) |
 | Historical data source | Locked | Angel One SmartAPI historical candle API (jugaad-data ruled out — EOD only, can't backtest intraday) |
 | Backtesting engine | Locked | Backtesting.py (vectorbt has open bugs on intraday SL/TP+EOD-exit; backtrader unmaintained) |
-| Stock universe | Locked | Large-cap NSE cash equity (Nifty 50/100) — no small-caps, no options/derivatives |
-| Strategy candidates | Locked (starting points, not final) | A) Opening Range Breakout, B) VWAP breakout, C) Gap + Opening-Range — see `phase-1-backtesting.md` for full rules, cost model, and overfitting checklist |
+| Stock universe | Locked | Large-cap NSE cash equity — **Nifty 200** for the delivery work (breadth is needed for cross-sectional ranking) |
+| Product | **Locked — changed** | **Delivery (CNC), not intraday (MIS).** Intraday was tested across 12 strategies and rejected: costs (~14 bps) exceed the available edge (~11 bps). Delivery costs 2.1x more per trade but is amortised over multi-week moves. |
+| Strategy | Locked | **12-1 cross-sectional momentum + 200-DMA trend filter**, top 20 equal-weight, monthly rebalance. Exit is the rebalance — no SL/TP. |
+| Backtest engine (delivery) | Locked | Custom `backtest/portfolio.py` — Backtesting.py is single-instrument and cannot express cross-sectional ranking |
 
 ## Notes / open risk items to keep in view
 

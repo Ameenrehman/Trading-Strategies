@@ -1,5 +1,25 @@
 # Phase 3 — Going Live
 
+> **REVISED for delivery/CNC — simpler and lower-risk than written.**
+>
+> Still true: SEBI's static-IP + OAuth + 2FA rules apply to live order placement,
+> so the EC2 `ap-south-1` + Elastic IP plan stands.
+>
+> What changes with a monthly delivery strategy:
+> - **~12 order events a year, tens of orders each.** Nowhere near any
+>   rate-limit or algo-registration threshold.
+> - **No WebSocket.** Signals come from end-of-day closes, not a live feed.
+> - **No MIS auto-square-off race.** Delivery positions are not force-closed, so
+>   the single sharpest intraday failure mode disappears.
+> - **No intraday circuit breaker needed.** A daily max-loss breaker made sense
+>   for a bot that could trade repeatedly in a session. Here the guardrail is
+>   position sizing and the 200-DMA filter.
+> - **The runner is a cron job**, not a long-running event loop.
+>
+> What gets MORE important: overnight and weekend gap risk is now real, and
+> orders are placed at the open on a price that may differ materially from the
+> close the signal was computed on.
+
 Goal: swap simulated fills for real orders, only after Phase 2 results hold up over a meaningful stretch. This is the phase where SEBI's order-API rules (static IP, OAuth, 2FA) actually apply.
 
 ## Decisions (already locked, listed here for reference)

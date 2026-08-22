@@ -1,26 +1,29 @@
 # Trading-Strategies
 
-Backtesting NSE intraday cash-equity strategies with a realistic Indian cost model — and measuring honestly enough to tell a real edge from a bookkeeping illusion.
+Systematic NSE equity strategies tested against a realistic Indian cost model — and measured honestly enough to tell a real edge from a bookkeeping illusion.
 
-Part of a staged project: **backtest → paper trade → live execution** via Angel One SmartAPI. Only Phase 1 (backtesting) is in this repo.
+Two parts, in order:
 
-**Scope:** same-day cash equity, Nifty 50/100 large-caps. No options, no derivatives, no small-caps, no overnight positions.
+1. **Intraday** — 12 strategies, tested, **rejected**. A genuine edge was found and shown to be smaller than its own trading costs.
+2. **Delivery / CNC momentum** — the current work. Built and validated; awaiting real data.
+
+**Scope:** long-only NSE cash equity. No options, no derivatives, no small-caps.
 
 ---
 
 ## The core idea
 
-Most retail intraday backtests fail in the same way: they report **total return**, size every trade at ~100% of equity, and then conclude that costs killed an otherwise good strategy.
+Most retail backtests fail the same way: they report **total return**, size every trade at ~100% of equity, and conclude that costs killed an otherwise good strategy.
 
-That framing hides the actual question. With full-equity sizing, total return is roughly the per-trade edge compounded over the trade count — so a strategy trading 400×/year looks catastrophic and one trading 70×/year looks promising, purely because it paid the toll fewer times. **You end up ranking strategies by how little they trade.**
+That hides the actual question. With full-equity sizing, total return is roughly the per-trade edge compounded over the trade count — so a strategy trading 400×/year looks catastrophic and one trading 70×/year looks promising, purely because it paid the toll fewer times. **You end up ranking strategies by how little they trade.**
 
-This repo measures **gross bps/trade → realised cost → net bps/trade**, with a t-stat and a multiple-testing correction. That single change reversed most of the conclusions from the first round of testing.
+This repo measures **gross edge → realised cost → net edge**, with t-stats, multiple-testing correction, and randomized controls. That change reversed most of the original conclusions.
 
 ---
 
-## Results so far
+# Part 1 — Intraday (complete, rejected)
 
-**11 strategies tested across 4 families**, 5 large-caps, 2 years of 5-minute bars (493 sessions), zero-cost runs to isolate the raw signal:
+11 strategies across 4 families, 5 large-caps, 2 years of 5-minute bars, zero-cost runs to isolate the raw signal:
 
 | Strategy | Family | Trades | Gross bps/trade | t |
 |---|---|---:|---:|---:|
@@ -30,85 +33,93 @@ This repo measures **gross bps/trade → realised cost → net bps/trade**, with
 | Prev-day High/Low | selectivity | 1677 | **+3.58** | 2.35 |
 | VWAP breakout | VWAP | 1954 | +0.75 | 0.48 |
 | Supertrend | trend | 1691 | +0.52 | 0.32 |
-| Trend+Vol filtered ORB | ORB | 913 | -0.14 | -0.06 |
-| Gap fade | mean-rev | 346 | -0.17 | -0.05 |
 | Naive ORB 30m | ORB | 1942 | -0.88 | -0.48 |
-| VWAP pullback | VWAP | 2114 | -2.05 | -1.60 |
 | EMA momentum | trend | 1328 | -2.68 | -1.55 |
 
-The ordering isn't random. **The top four all decide *which sessions to trade*** rather than trading every morning. Every ORB, VWAP, trend-following and mean-reversion variant sits at or below zero.
+The ordering isn't random: the top four all decide *which sessions to trade*. Every ORB, VWAP, trend and mean-reversion variant sits at or below zero. Naive ORB has **no edge at all** — its headline −56% two-year return is entirely toll.
 
-Naive ORB in particular has **no edge at all** — not "an edge destroyed by costs". Its headline -56% two-year return is entirely toll: 388 trades × ~20 bps.
+The best variant (gap ≥1% + RVOL filter + ATR trailing stop) reached **+30.7 bps gross / +15.8 bps net** on 5 symbols and beat **20/20** randomized-direction control seeds, with the inverted variant symmetrically negative. That ruled out "it's just volatility capture."
 
-### Round 2 — Dynamic Gap + RVOL Momentum (5 symbols)
+**Then it was tested on 50 symbols and collapsed:**
 
-Trade only gapped sessions, enter in the gap direction at the opening-range extreme, hold with an ATR chandelier trailing stop, size by fixed-fractional risk.
-
-On the original 5 symbols this looked strong: gross edge rose monotonically with the gap threshold, and the best variant (gap ≥1.0% + RVOL ≥1.5) reached **+30.7 bps gross / +15.8 bps net per trade** across 94 trades.
-
-It also passed a randomized-direction control decisively — same days, same levels, same exits, only direction changed:
-
-| Configuration | Trades | Gross bps | Net bps |
+| Group | Trades | Gross bps | Net bps |
 |---|---:|---:|---:|
-| **Real — follow the gap** | 94 | **+30.66** | **+15.78** |
-| Random direction (mean, 20 seeds) | ~88 | +8.50 | -6.15 |
-| **Inverted — fade the gap** | 97 | **-10.95** | **-25.44** |
+| Original 5 symbols | 94 | +30.66 | **+15.78** |
+| The other 45 | 608 | +8.26 | **−6.47** (t = −2.15) |
+| **All 50** | **702** | **+11.26** (t = 4.00) | **−3.49** |
 
-Real beat 20/20 random seeds, roughly symmetric around the random baseline. That ruled out "it's just volatility capture" — the directional signal is genuine.
+The 5 development names were a favourable draw. On the 45 never used to build the strategy, net edge is significantly **negative**.
 
-### Round 3 — the same strategy on 50 symbols (the decisive test)
+**Verdict: no go.** The edge is real (+11.26 bps, t = 4.00) and simply smaller than the ~14 bps it costs to trade. Breakeven needs 0.49 bps/leg slippage — effectively zero market impact. The pre-registered kill criterion fired and no live money was risked.
 
-94 trades from 5 correlated mega-caps cannot settle anything, so the universe was widened to the full Nifty 50 — 702 qualifying trades, same code, same parameters.
+The binding constraint: **the same-day exit**. Median daily range is 142–192 bps, so each intraday round trip burns 8–10% of the entire day's available movement.
 
-**The result collapsed.**
+---
 
-| Group | Trades | Gross bps | t | Net bps | t |
-|---|---:|---:|---:|---:|---:|
-| Original 5 symbols | 94 | +30.66 | +3.93 | **+15.78** | +2.02 |
-| The other 45 | 608 | +8.26 | +2.75 | **-6.47** | **-2.15** |
-| **All 50** | **702** | **+11.26** | **+4.00** | **-3.49** | -1.24 |
+# Part 2 — Delivery / CNC momentum (current)
 
-The 5 original names were a favourable draw. On the 45 never used to develop the strategy, net edge is **significantly negative**. All 10 variants are net negative on the full universe.
+Holding longer attacks that constraint directly, because moves scale with roughly √time while cost is paid once:
 
-**What survives:** the gross edge is real and now *more* statistically solid (t = 4.00 on 702 trades), and the monotonic gap-size relationship holds. **It is simply smaller than the cost of trading it.**
+| Hold | Median move | Delivery cost as % of move |
+|---:|---:|---:|
+| 1 day | 82 bps | 47.4% |
+| 20 days | 418 bps | 11.1% |
+| ~70 days | ~800 bps | **~6%** |
 
-### Verdict: no go
+**But delivery costs 2.1× intraday**, because STT is 0.1% on *both* legs instead of 0.025% sell-only. Short 2–5 day swings are the worst of both worlds. The viable zone is multi-week holds — systematic momentum investing, not trading.
 
-Gross edge +11.26 bps against a realised cost hurdle of ~14.75 bps.
+**Strategy:** 12-1 cross-sectional momentum (trailing 12-month return, skipping the most recent month to avoid short-term reversal), filtered to names above their 200-DMA, top 20 equal-weighted, monthly rebalance.
 
-| Position | 5 bps/leg (modelled) | 3 bps/leg | 2 bps/leg | 1 bps/leg |
-|---:|---:|---:|---:|---:|
-| ₹70,000 (actual median) | **-9.01** | -5.01 | -3.01 | -1.01 |
-| ₹200,000 | -4.63 | -0.63 | +1.37 | +3.37 |
+**Exits:** no stop-loss, no take-profit. The rebalance *is* the exit — a name is sold when it drops out of the top 20 or falls below its 200-DMA. Winners are allowed to run, which is where momentum's return comes from, and the 200-DMA filter is the systematic stop. Hard stops, daily trend exits and rank buffers are implemented as *testable options* rather than assumptions.
 
-Breakeven needs **0.49 bps/leg slippage** — effectively zero market impact, which a momentum breakout entry crossing the spread will never get. At ~300 trades/year on ₹1 lakh positions: **-₹20,975/yr** as modelled; **+₹3,025/yr** even in an unrealistic best case.
+**Status:** built, 14/14 sanity checks passing on synthetic data with known answers. **No real-data result yet** — the daily fetch is blocked by a corporate firewall and runs on a personal machine.
 
-**The project's pre-registered kill criterion fired, and the strategy direction was stopped.** No live money was risked on a strategy that backtested at +15.8 bps on a 5-symbol sample.
+### Rebalance frequency is not the same thing as turnover
 
-The binding constraint is the **same-day exit**: median daily range is only 142–192 bps, so each round trip spends ~8–10% of the entire day's available movement on costs. A strategy forced flat by 15:15 can't amortise that over a bigger move.
+Turnover is what costs money. Measured on the test framework:
+
+| Schedule | Turnover/yr | Cost/yr |
+|---|---:|---:|
+| Monthly + rank buffer | 216% | **1.32%** |
+| Monthly | 364% | 2.04% |
+| Weekly + rank buffer | 338% | 2.10% |
+| Daily + rank buffer | 527% | 3.03% |
+| **Daily, no buffer** | **2,161%** | **9.52%** |
+
+Naive daily rebalancing costs more than the entire expected premium, because names oscillate across the top-N boundary. A rank buffer — hold until a name drops out of the top (N + buffer) — fixes that far more cheaply than a slower calendar does.
+
+### Pre-registered go/no-go
+
+1. Beats equal-weight buy-and-hold by **≥3%/yr CAGR after costs**
+2. Higher Sharpe, max drawdown no worse
+3. Beats ≥19 of 20 random-selection seeds
+4. Bottom-decile control clearly worse
+5. Survives walk-forward without re-fitting
+6. Holds up in the recent-5-year subsample
+
+The 3% margin isn't arbitrary: applying today's index membership to years of history excludes companies that failed, and that bias is plausibly worth ~2%/yr.
+
+**Kill criterion:** if it can't beat buy-and-hold by 3%/yr after costs, stop. An index fund is then the right answer.
 
 ---
 
 ## Cost model
 
-NSE cash-equity intraday, 2026 tax year. **₹103.06 round-trip on a ₹50,000 position = 0.2061%.**
+`backtest/costs.py`. Both models are kept — conflating them is an easy way to build a strategy that looks profitable and isn't.
 
-| Component | Rate | Side | Share |
-|---|---|---|---:|
-| Brokerage | ₹20 flat or 0.03%, lower of the two, per order | Both | 29.1% |
-| STT | 0.025% | Sell only | 12.1% |
-| Exchange charges | 0.003% | Both | 2.9% |
-| SEBI turnover fee | 0.0001% | Both | 0.1% |
-| Stamp duty | 0.003% | Buy only | 1.5% |
-| GST | 18% on (brokerage + exchange + SEBI) | — | 5.8% |
-| **Slippage** (estimate) | **0.05% per leg** | Both | **48.5%** |
+| Component | Delivery (CNC) | Intraday (MIS) |
+|---|---|---|
+| Brokerage | `max(₹5, min(₹20, 0.1%))` per order | `min(₹20, 0.03%)` per order |
+| **STT** | **0.1% BOTH legs** | 0.025% sell only |
+| Exchange txn | 0.00297% both | 0.00297% both |
+| SEBI | 0.0001% both | 0.0001% both |
+| Stamp duty | 0.015% buy only | 0.003% buy only |
+| GST | 18% on (brokerage + exchange + SEBI + DP) | 18% on (brokerage + exchange + SEBI) |
+| **DP charges** | **₹20 per scrip on sell** | none |
 
-Two details that matter:
+Round-trip on ₹1,00,000 at 5 bps/leg slippage: **intraday 18.3 bps, delivery 39.3 bps.** STT alone is 20 bps of the delivery figure — 50.9% — and being purely proportional it never amortises with size.
 
-- **Costs are charged per order, not as a flat fraction.** `angel_intraday_commission()` is passed as a callable to Backtesting.py's `commission`, so the ₹20 cap applies to each order's real turnover, STT hits only the sell leg, and stamp duty only the buy leg.
-- **Slippage lives in `spread`, not `commission`.** Slippage moves the fill price; it isn't a fee.
-
-**The hurdle is size-dependent.** 20.6 bps is the cost on a ₹50,000 position. At realistic risk-based sizes it measures 13–15 bps. Always report the realised figure.
+**The hurdle is size-dependent.** Below ~₹5L of capital, fixed ₹20 brokerage and ₹20 DP per scrip push annual drag above 2%.
 
 ---
 
@@ -116,72 +127,80 @@ Two details that matter:
 
 ```
 strategies/
-  session.py             # session structure, day-aware ATR, risk sizing
-  orb_strategy.py        # opening range breakout
-  gap_rvol_strategy.py   # dynamic gap + RVOL momentum
+  momentum_xs.py         # cross-sectional momentum + trend filter (current)
+  session.py             # session structure, day-aware ATR, risk sizing (intraday)
+  orb_strategy.py        # opening range breakout (rejected)
+  gap_rvol_strategy.py   # gap + RVOL momentum (rejected)
 backtest/
-  costs.py               # Indian cost model + per-order commission callable
-  verify_fixes.py        # invariant checks (no overnight leaks, RR, sizing)
-  test_gap_rvol.py       # gap threshold / filter sweep
-  test_gap_controls.py   # randomized- and inverted-direction controls
-  validate.py            # overfitting suite (walk-forward, holdout, ...)
+  costs.py               # intraday AND delivery cost models
+  portfolio.py           # monthly-rebalance portfolio backtester
+  test_portfolio_sanity.py   # 14 known-answer checks — run this first
+  test_momentum.py           # momentum vs benchmark
+  test_momentum_controls.py  # random-selection and bottom-decile controls
+  verify_fixes.py            # intraday invariant checks
+  test_gap_rvol.py / test_gap_controls.py   # intraday (rejected)
+live/
+  generate_orders.py     # the actual buy/sell list, sharing the backtest's signal code
 data/
-  fetch_universe.py      # chunked 50-symbol fetcher + integrity audit
-  nifty50.json           # universe list
-Learning-T/              # planning docs, full methodology and findings
+  fetch_universe.py      # chunked fetcher (5-min and daily) with integrity audit
+  nifty200.json          # delivery universe
+Learning-T/              # planning docs, methodology, full findings
 ```
 
 ## Running it
 
-Requires **Python 3.13**. The virtualenv is deliberately not committed — it hardcodes absolute paths to the machine that built it and won't run anywhere else.
+Requires **Python 3.13**. The virtualenv is deliberately not committed — it hardcodes absolute paths to the machine that built it.
 
 ```bash
 git clone https://github.com/Ameenrehman/Trading-Strategies.git
 cd Trading-Strategies
 
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+.venv\Scripts\activate           # Windows
 source .venv/bin/activate        # macOS / Linux
 
 pip install -r requirements.txt
 ```
 
-Then run any of these — **no API access or credentials needed**, the 5-symbol dataset is committed:
+Intraday results reproduce immediately — the 5-minute dataset is committed, no credentials needed:
 
 ```bash
-python backtest/verify_fixes.py       # invariant checks + before/after comparison
-python backtest/test_gap_rvol.py      # the gap threshold sweep
-python backtest/test_gap_controls.py  # the randomized-direction control test
-python backtest/costs.py              # cost breakdown by position size
+python backtest/costs.py               # cost tables, both products
+python backtest/verify_fixes.py        # intraday invariant checks
+python backtest/test_gap_rvol.py       # the gap sweep
+python backtest/test_gap_controls.py   # the control that killed it
 ```
 
-Dependency versions are pinned, because `pandas` 3.x and `numpy` 2.x both carry behaviour changes that can move the numbers.
-
-Fetching **new** data does need Angel One SmartAPI credentials in `.env` (see `.env.example`):
+The momentum work needs daily data, which requires Angel One credentials in `.env` (see `.env.example`):
 
 ```bash
-python data/fetch_universe.py --symbols TCS,INFY   # try two names first
-python data/fetch_universe.py                      # full Nifty 50, ~6 min
-python data/fetch_universe.py --audit-only         # integrity check, no network
+python data/fetch_universe.py --interval ONE_DAY --universe nifty200 --years 15
+python backtest/test_portfolio_sanity.py    # 14/14 before trusting anything
+python backtest/test_momentum.py
+python backtest/test_momentum_controls.py
 ```
+
+Dependency versions are pinned — `pandas` 3.x and `numpy` 2.x both carry behaviour changes that move the numbers.
 
 ---
 
 ## Methodology notes
 
-Things this repo tries to do properly, because the first round got them wrong:
+Things this repo tries to do properly, mostly because earlier versions got them wrong:
 
-- **Fixed-fractional risk sizing**, not ~100% of equity per trade, so results are comparable in R-multiples.
-- **Timestamp-keyed sessions**, not bar counts — a missing bar shouldn't shift the opening range.
-- **Day-aware ATR** — the overnight gap is not intraday range.
-- **Verified no overnight leakage.** An earlier version silently held 4 positions overnight on days with a truncated feed.
-- **Entries as resting stop orders at the breakout level**, not market fills at the close of whichever bar broke it.
-- **Corporate-action audit before backtesting.** One unadjusted split fabricates an enormous fake signal for a gap strategy.
+- **Measure gross edge, realised cost and net edge separately.** Total return conflates edge with trade frequency.
+- **Fixed-fractional risk sizing**, not ~100% of equity per trade.
+- **Randomized controls.** The intraday phase was decided by a randomized-direction test; the momentum phase has random-selection and bottom-decile controls built in from the start.
 - **Multiple-testing correction.** Every variant tested raises the bar; the count is tracked and reported.
-- **An untouched out-of-sample holdout**, reserved for exactly one test at the end.
+- **Point-in-time filters.** Eligibility is computed only from data available at each rebalance date.
+- **Known-answer tests.** The portfolio backtester is verified against synthetic data where the correct result is known by construction — that caught three real defects before any market data was involved.
+- **Corporate-action audit before backtesting.** One unadjusted split fabricates an enormous fake signal, especially for momentum, which ranks on trailing returns.
+- **Pre-registered kill criteria**, written before seeing results, and actually honoured.
 
 ## Caveats
 
-Research code, not trading advice. Nothing here has been paper-traded or traded live, and no strategy has passed validation. Backtested edges routinely fail to survive real execution — slippage on a momentum entry is plausibly worse than the 5 bps/leg assumed here, and measuring it for real is a Phase 2 deliverable.
+Research code, not trading advice. Nothing here has been paper-traded or traded live, and no strategy has passed validation. The momentum work carries **survivorship bias** that free data cannot fully remove — today's index membership applied to historical data excludes companies that failed, which inflates backtested momentum returns. Returns are price-only (no dividends).
 
-Historical data included under `data/` was retrieved via Angel One SmartAPI and is provided for reproducibility of these results.
+Backtested edges routinely fail in live execution: slippage on a momentum entry is plausibly worse than the 5 bps/leg assumed here, and measuring it for real is an open task.
+
+Historical data under `data/` was retrieved via Angel One SmartAPI and is included for reproducibility.

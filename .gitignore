@@ -4,3 +4,9 @@ __pycache__/
 .env
 infra/.env
 *.log
+
+# Live trading state — this is a PUBLIC repo. positions.json holds real
+# holdings and share counts, and orders_*.csv holds real order sizes.
+# Publishing either would expose the actual portfolio and its size.
+live/positions.json
+live/orders_*.csv

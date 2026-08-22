@@ -1,5 +1,15 @@
 # Phase 1 — Backtesting
 
+> **SUPERSEDED — this phase is complete and its answer was NO.** Intraday
+> cash-equity trading does not clear retail costs on Nifty large-caps. The full
+> record is preserved below because the negative result is the valuable part,
+> and because the cost model, validation discipline and randomized-control
+> method all carried forward.
+>
+> **Current work: [`phase-1b-delivery-momentum.md`](phase-1b-delivery-momentum.md)**
+> — delivery/CNC cross-sectional momentum, which attacks the constraint that
+> killed this phase (the same-day exit).
+
 Goal: prove a strategy has a real, non-curve-fit, post-cost edge on historical NSE data before risking any real-time attention or money on it. Runs entirely locally, no regulatory constraints (read-only historical data, no orders).
 
 Strategy is the main deliverable of this whole project — this phase is allowed to take real time. Don't lock in the first idea that backtests positive; the validation checklist below exists specifically so you don't fool yourself.

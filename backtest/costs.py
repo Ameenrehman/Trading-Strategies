@@ -136,16 +136,162 @@ def angel_intraday_commission(order_size: int, price: float) -> float:
 SLIPPAGE_PER_LEG = 0.0005
 
 
+# ---------------------------------------------------------------------------
+# Delivery (CNC) cost model — for multi-day/positional holding
+# ---------------------------------------------------------------------------
+#
+# Everything above this line is the INTRADAY (MIS) model and is kept for the
+# historical record of the intraday work (which was tested and rejected — see
+# Learning-T/phase-1-backtesting.md). Delivery is a materially different and
+# more expensive structure, and conflating the two is an easy way to build a
+# strategy that looks profitable and isn't.
+#
+# The dominant difference is STT: 0.1% on BOTH legs for delivery, versus
+# 0.025% sell-only for intraday. That alone is 20 bps of round-trip cost and,
+# being purely proportional, it never amortises with position size. Delivery
+# also adds DP (depository) charges on the sell leg, which are a flat rupee
+# amount per scrip and therefore hurt small positions badly.
+#
+# Rates verified Aug 2026. Brokerage is Angel One's post-Nov-2024 delivery
+# schedule (they no longer offer free delivery).
+
+DELIVERY_BROKERAGE_MIN = 5.0        # Rs. floor per order
+DELIVERY_BROKERAGE_CAP = 20.0       # Rs. ceiling per order
+DELIVERY_BROKERAGE_RATE = 0.001     # 0.1% of turnover
+DELIVERY_STT = 0.001                # 0.1% — BOTH legs (vs 0.025% sell-only intraday)
+DELIVERY_STAMP = 0.00015            # 0.015% — buy only (vs 0.003% intraday)
+EXCHANGE_TXN = 0.0000297            # 0.00297% NSE, both legs
+SEBI_FEE = 0.000001                 # 0.0001%, both legs
+GST_RATE = 0.18
+DP_CHARGE_PER_SELL = 20.0           # Rs. per scrip on the sell leg (CDSL/Angel One)
+
+
+def delivery_brokerage_per_order(turnover: float) -> float:
+    """Angel One delivery: Rs.20 or 0.1% of turnover, whichever is lower, min Rs.5."""
+    return max(DELIVERY_BROKERAGE_MIN,
+               min(DELIVERY_BROKERAGE_CAP, turnover * DELIVERY_BROKERAGE_RATE))
+
+
+def delivery_round_trip(buy_value: float, sell_value: float,
+                        slippage_per_leg: float = SLIPPAGE_PER_LEG) -> dict:
+    """
+    Full round-trip cost in rupees for one delivery (CNC) position.
+
+    Unlike the intraday model, slippage is included here rather than being
+    handed to a `spread` parameter — the portfolio backtester charges a single
+    cash cost per rebalance rather than adjusting individual fill prices.
+
+    Returns a dict of components plus 'total'.
+    """
+    brok_buy = delivery_brokerage_per_order(buy_value)
+    brok_sell = delivery_brokerage_per_order(sell_value)
+    total_brokerage = brok_buy + brok_sell
+
+    stt = (buy_value + sell_value) * DELIVERY_STT          # BOTH legs
+    exchange = (buy_value + sell_value) * EXCHANGE_TXN
+    sebi = (buy_value + sell_value) * SEBI_FEE
+    stamp = buy_value * DELIVERY_STAMP                     # buy only
+    dp = DP_CHARGE_PER_SELL                                # sell only, per scrip
+    gst = (total_brokerage + exchange + sebi + dp) * GST_RATE
+    slippage = (buy_value + sell_value) * slippage_per_leg
+
+    total = total_brokerage + stt + exchange + sebi + stamp + dp + gst + slippage
+
+    return {
+        "brokerage": total_brokerage,
+        "stt": stt,
+        "exchange_charges": exchange,
+        "sebi_fee": sebi,
+        "stamp_duty": stamp,
+        "dp_charges": dp,
+        "gst": gst,
+        "slippage": slippage,
+        "total": total,
+    }
+
+
+def delivery_cost_bps(position_value: float,
+                      slippage_per_leg: float = SLIPPAGE_PER_LEG) -> float:
+    """Round-trip delivery cost in basis points of position value."""
+    if position_value <= 0:
+        return 0.0
+    c = delivery_round_trip(position_value, position_value, slippage_per_leg)
+    return c["total"] / position_value * 1e4
+
+
+def delivery_one_way_cost(traded_value: float, side: str,
+                          slippage_per_leg: float = SLIPPAGE_PER_LEG) -> float:
+    """
+    Cost in rupees for a single delivery leg.
+
+    The portfolio backtester needs this because a rebalance buys some names and
+    sells others independently — charging a symmetric half of a round trip would
+    misplace STT (both legs, so symmetric), stamp duty (buy only) and DP
+    charges (sell only).
+
+    `side` is 'buy' or 'sell'.
+    """
+    if traded_value <= 0:
+        return 0.0
+    is_buy = side.lower() == "buy"
+
+    brokerage = delivery_brokerage_per_order(traded_value)
+    stt = traded_value * DELIVERY_STT
+    exchange = traded_value * EXCHANGE_TXN
+    sebi = traded_value * SEBI_FEE
+    stamp = traded_value * DELIVERY_STAMP if is_buy else 0.0
+    dp = 0.0 if is_buy else DP_CHARGE_PER_SELL
+    gst = (brokerage + exchange + sebi + dp) * GST_RATE
+    slippage = traded_value * slippage_per_leg
+
+    return brokerage + stt + exchange + sebi + stamp + dp + gst + slippage
+
+
 if __name__ == "__main__":
-    # Quick sanity check: print costs at different position sizes
-    print(f"{'Position Size':>15} | {'Total Cost':>12} | {'Cost %':>8}")
-    print("-" * 45)
-    for size in [10_000, 25_000, 50_000, 100_000, 200_000, 500_000]:
+    SIZES = [10_000, 25_000, 50_000, 100_000, 200_000, 500_000]
+
+    print("=" * 68)
+    print("  INTRADAY (MIS) — round-trip cost")
+    print("=" * 68)
+    print(f"{'Position Size':>15} | {'Total Cost':>12} | {'Cost %':>8} | {'bps':>7}")
+    print("-" * 55)
+    for size in SIZES:
         costs = round_trip_cost(size, size)
         pct = (costs["total"] / size) * 100
-        print(f"Rs.{size:>12,} | Rs.{costs['total']:>9,.2f} | {pct:>7.3f}%")
+        print(f"Rs.{size:>12,} | Rs.{costs['total']:>9,.2f} | {pct:>7.3f}% | {pct*100:>6.1f}")
 
-    print("\n--- Breakdown for Rs.50,000 trade ---")
-    detail = round_trip_cost(50_000, 50_000)
-    for k, v in detail.items():
+    print("\n--- Breakdown for Rs.50,000 intraday trade ---")
+    for k, v in round_trip_cost(50_000, 50_000).items():
         print(f"  {k:20s}: Rs.{v:,.2f}")
+
+    print("\n" + "=" * 68)
+    print("  DELIVERY (CNC) — round-trip cost")
+    print("=" * 68)
+    print(f"{'Position Size':>15} | {'Total Cost':>12} | {'Cost %':>8} | {'bps':>7}")
+    print("-" * 55)
+    for size in SIZES:
+        costs = delivery_round_trip(size, size)
+        pct = (costs["total"] / size) * 100
+        print(f"Rs.{size:>12,} | Rs.{costs['total']:>9,.2f} | {pct:>7.3f}% | {pct*100:>6.1f}")
+
+    print("\n--- Breakdown for Rs.100,000 delivery position ---")
+    detail = delivery_round_trip(100_000, 100_000)
+    for k, v in detail.items():
+        share = v / detail["total"] * 100
+        print(f"  {k:20s}: Rs.{v:>9,.2f}  ({share:>5.1f}%)")
+
+    print("\n--- Why delivery is structurally more expensive ---")
+    for size in [50_000, 100_000, 200_000, 500_000]:
+        i = cost_as_fraction(size) * 1e4
+        d = delivery_cost_bps(size)
+        print(f"  Rs.{size:>8,}: intraday {i:>5.1f} bps | delivery {d:>5.1f} bps "
+              f"| {d/i:>4.1f}x")
+    print("\n  STT alone is 20.0 bps of the delivery cost and is purely")
+    print("  proportional, so it never amortises with position size.")
+
+    print("\n--- Sensitivity to the slippage assumption (delivery) ---")
+    print(f"{'position':>10} | " + " | ".join(f"{s} bps/leg" for s in [5, 3, 2, 1]))
+    print("-" * 52)
+    for size in [50_000, 100_000, 200_000, 500_000]:
+        row = " | ".join(f"{delivery_cost_bps(size, s/1e4):9.1f}" for s in [5, 3, 2, 1])
+        print(f"Rs.{size:>7,} | {row}")
