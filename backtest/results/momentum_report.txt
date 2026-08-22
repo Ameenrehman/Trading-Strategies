@@ -1,0 +1,55 @@
+﻿Universe: 205 symbols
+History : 2011-08-24 -> 2026-08-21 (15.0 years)
+Capital : Rs.1,000,000
+
+Running benchmark (equal-weight buy & hold)...
+Running momentum baseline (12-1, top 20, 200-DMA filter)...
+Sweeping variants...
+Testing exit-rule variants (stop loss / daily trend exit)...
+Sweeping rebalance frequency (daily / weekly / monthly)...
+
+========================================================================================================================
+  CROSS-SECTIONAL MOMENTUM ΓÇö full history, after delivery costs
+========================================================================================================================
+                    variant  years  CAGR%  vol%  Sharpe  maxDD%  Calmar  turn/yr%  hold(mo)  cost%/yr         final
+ BENCHMARK equal-weight B&H  14.99  17.07 16.38    1.06  -37.75    0.45      8.43    142.41      0.03 10,623,267.00
+momentum 12-1 top20 +200DMA  14.99  28.48 19.72    1.39  -37.38    0.76    518.88      2.31     12.19 42,806,838.66
+            no trend filter  14.99  27.94 20.02    1.35  -39.02    0.72    489.28      2.45     10.82 40,189,885.42
+                     top 10  14.99  26.72 22.04    1.20  -37.76    0.71    632.36      1.90     11.64 34,808,304.11
+                     top 30  14.99  26.91 18.81    1.38  -36.82    0.73    461.41      2.60     10.50 35,608,207.48
+               6-1 momentum  14.99  29.67 20.62    1.39  -34.29    0.87    714.70      1.68     20.61 49,154,175.65
+        quarterly rebalance  14.99  27.18 19.89    1.33  -39.93    0.68    279.04      4.30      5.88 36,753,678.69
+             rank buffer 10  14.99  27.96 19.63    1.38  -39.05    0.72    324.67      3.70      8.16 40,310,612.65
+       + disaster stop -25%  14.99  27.82 19.30    1.39  -32.10    0.87    514.70      2.33     11.50 39,621,222.02
+         + daily trend exit  14.99  25.99 17.85    1.41  -30.58    0.85    464.47      2.58     10.81 31,935,182.09
+            DAILY rebalance  14.99  24.39 19.47    1.24  -39.99    0.61  2,625.12      0.46     43.05 26,367,222.40
+     DAILY + rank buffer 10  14.99  28.32 19.25    1.42  -35.52    0.80    689.46      1.74     16.16 42,031,862.78
+     DAILY + rank buffer 20  14.99  28.96 19.16    1.45  -36.10    0.80    499.61      2.40     12.11 45,292,487.77
+           WEEKLY rebalance  14.99  27.91 19.61    1.38  -35.43    0.79  1,139.67      1.05     25.59 40,086,940.23
+    WEEKLY + rank buffer 10  14.99  29.37 19.38    1.45  -34.80    0.84    495.12      2.42     13.10 47,513,993.75
+
+========================================================================================================================
+  RECENT 5 YEARS ΓÇö index membership drift is smallest here.
+  A big gap vs the full window is a survivorship-bias signature.
+========================================================================================================================
+                    variant  years  CAGR%  vol%  Sharpe  maxDD%  Calmar  turn/yr%  hold(mo)  cost%/yr        final
+ BENCHMARK equal-weight B&H   4.99  14.04 13.60    1.05  -21.86    0.64     17.88     67.13      0.05 1,927,632.69
+momentum 12-1 top20 +200DMA   4.99  16.08 18.91    0.90  -30.27    0.53    487.79      2.46      1.74 2,106,100.67
+
+========================================================================================================================
+  GO / NO-GO (criteria 1, 2, 6 ΓÇö controls are in test_momentum_controls.py)
+========================================================================================================================
+  1. Beats benchmark by >= 3%/yr : +11.40%/yr  [PASS]
+  2a. Higher Sharpe              : 1.39 vs 1.06  [PASS]
+  2b. Max drawdown no worse      : -37.4% vs -37.7%  [PASS]
+  6. Recent-5y edge              : +2.04%/yr  [FAIL]
+
+  Variants tested this run: 14 (count them against the multiple-testing budget)
+  Annualised turnover: 519%/yr -> avg hold ~2.3 months
+  Turnover is the dominant cost lever ΓÇö compare turn/yr% across the
+  rebalance-frequency rows before choosing a schedule.
+
+  NOTE: returns are price-only (no dividends). This understates the
+  strategy and the benchmark roughly equally, so the comparison holds.
+
+Saved: E:\Trading-Strategies\backtest\results\momentum_summary.csv

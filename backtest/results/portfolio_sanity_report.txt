@@ -1,0 +1,21 @@
+﻿==============================================================================
+  PORTFOLIO BACKTESTER ΓÇö SANITY CHECKS
+==============================================================================
+  [PASS]  zero-cost buy&hold matches manual calc               diff 0.0000%
+  [PASS]  turnover == 0 when selection never changes           max after build 0.00e+00
+  [PASS]  zero costs when charge_costs=False                   total 0.00
+  [PASS]  charged cost == delivery_one_way_cost per leg        err Rs.0.0000 over 10 trades
+  [PASS]  costs reduce final equity                            drag 0.516% of initial capital
+  [PASS]  momentum ranks the strongest drifters top            picked ['SYM09', 'SYM08', 'SYM07']
+  [PASS]  12-1 momentum ignores the skipped recent month       score -0.0155 -> -0.0155
+  [PASS]  trend filter drops a name below its 200-DMA          picked ['SYM04', 'SYM05', 'SYM07', 'SYM01', 'SYM03']
+  [PASS]  holds cash when nothing qualifies                    final Rs.1,000,000
+  [PASS]  signal_fn never sees data beyond the rebalance date  37 rebalances checked
+  [PASS]  no implausible single-day equity jumps               max |1d move| 1.99%
+  [PASS]  momentum_scores at exact history boundary            n=272..275 all safe
+  [PASS]  daily rebalance schedule runs                        800 daily vs 37 monthly
+  [PASS]  one-way legs sum to the round-trip cost              Rs.393.05 vs Rs.393.05
+
+==============================================================================
+  14/14 checks passed
+==============================================================================

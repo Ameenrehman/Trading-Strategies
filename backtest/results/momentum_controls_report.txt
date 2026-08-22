@@ -1,0 +1,49 @@
+﻿Universe: 205 symbols, 2011-08-24 -> 2026-08-21
+
+Running the real strategy...
+Running the benchmark...
+Running control A (random selection) x 20 seeds...
+  seed  0: CAGR  17.60%  Sharpe  1.04
+  seed  1: CAGR  17.34%  Sharpe  1.05
+  seed  2: CAGR  13.38%  Sharpe  0.85
+  seed  3: CAGR  13.81%  Sharpe  0.87
+  seed  4: CAGR  18.89%  Sharpe  1.13
+  seed  5: CAGR  12.11%  Sharpe  0.76
+  seed  6: CAGR  13.27%  Sharpe  0.86
+  seed  7: CAGR  12.67%  Sharpe  0.81
+  seed  8: CAGR  15.01%  Sharpe  0.93
+  seed  9: CAGR  14.15%  Sharpe  0.88
+  seed 10: CAGR  18.01%  Sharpe  1.09
+  seed 11: CAGR  16.63%  Sharpe  1.03
+  seed 12: CAGR  14.84%  Sharpe  0.92
+  seed 13: CAGR  16.91%  Sharpe  1.02
+  seed 14: CAGR  14.87%  Sharpe  0.91
+  seed 15: CAGR  16.70%  Sharpe  1.02
+  seed 16: CAGR  14.82%  Sharpe  0.91
+  seed 17: CAGR  13.08%  Sharpe  0.84
+  seed 18: CAGR  15.39%  Sharpe  0.94
+  seed 19: CAGR  15.98%  Sharpe  0.97
+Running control B (bottom decile)...
+
+====================================================================================
+  CONTROL TEST ΓÇö does the momentum RANKING carry information?
+====================================================================================
+                                        CAGR%   Sharpe    maxDD%
+  ------------------------------------------------------------------
+  REAL (top 20 by momentum)             28.48     1.39     -37.4
+  BENCHMARK (equal-weight B&H)          17.07     1.06     -37.7
+  Control A random (mean)               15.27     0.94     -37.9
+    ... best of 20 seeds                18.89     1.13
+    ... worst of 20 seeds               12.11     0.76
+  Control B bottom decile               11.67     0.73     -44.1
+
+  Random seeds matching or beating the real strategy: 0/20
+  Real vs random mean : +13.20%/yr
+  Random mean vs bottom: +3.60%/yr
+
+  VERDICT: the ranking carries information. Momentum beats every
+           random seed AND the bottom decile is symmetrically worse ΓÇö
+           the mirror pattern that indicates a real effect rather
+           than equity beta plus a trend filter.
+
+Saved: E:\Trading-Strategies\backtest\results\momentum_controls.csv
