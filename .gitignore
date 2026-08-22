@@ -4,4 +4,3 @@ __pycache__/
 .env
 infra/.env
 *.log
-.env.example
