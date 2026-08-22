@@ -1,0 +1,29 @@
+# Python 3.13 (developed and verified on 3.13.7)
+#
+# Versions are pinned so the backtest numbers in the README reproduce exactly.
+# pandas 3.x and numpy 2.x both carry behaviour changes that can move results,
+# so don't float these casually.
+#
+# Setup:
+#   python -m venv .venv
+#   .venv\Scripts\activate         # Windows
+#   source .venv/bin/activate      # macOS / Linux
+#   pip install -r requirements.txt
+#
+# Never commit .venv/ - it hardcodes absolute paths to the machine that built
+# it and will not run anywhere else.
+
+# --- backtesting core ---
+backtesting==0.6.6
+pandas==3.0.5
+numpy==2.5.2
+bokeh==3.10.0                 # backtesting.py uses this for HTML reports
+pandas_market_calendars==5.4.0
+
+# --- broker API / data fetching ---
+smartapi-python==1.5.5
+pyotp==2.10.0                 # TOTP for SmartAPI 2FA
+python-dotenv==1.2.3
+requests==2.34.2              # scrip-master download in fetch_universe.py
+websocket-client==1.9.0       # required by smartapi-python
+logzero==1.7.0                # required by smartapi-python

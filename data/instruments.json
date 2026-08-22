@@ -1,0 +1,9 @@
+{
+  "stocks": [
+    {"symbol": "SBIN",     "token": "3045",  "exchange": "NSE", "name": "State Bank of India"},
+    {"symbol": "RELIANCE", "token": "2885",  "exchange": "NSE", "name": "Reliance Industries"},
+    {"symbol": "TCS",      "token": "11536", "exchange": "NSE", "name": "Tata Consultancy Services"},
+    {"symbol": "HDFCBANK", "token": "1333",  "exchange": "NSE", "name": "HDFC Bank"},
+    {"symbol": "INFY",     "token": "1594",  "exchange": "NSE", "name": "Infosys"}
+  ]
+}
