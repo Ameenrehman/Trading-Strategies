@@ -1,11 +1,107 @@
 ====================================================================================================
   UNIVERSE FETCH REPORT
 ====================================================================================================
-  symbol  rows  days                     start                       end  dupes  ohlc_bad  bad_open  short_days  zero_vol  suspect_gaps status
-HDFCBANK 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
-    INFY 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
-RELIANCE 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
-    SBIN 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
-     TCS 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
+    symbol  rows  days                     start                       end  dupes  ohlc_bad  bad_open  short_days  zero_vol  suspect_gaps status
+  ADANIENT 37149   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+ADANIPORTS 37146   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+APOLLOHOSP 37133   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+ASIANPAINT 37143   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+  AXISBANK 37161   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+BAJAJ-AUTO 37139   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+BAJAJFINSV 37136   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+BAJFINANCE 37137   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+       BEL 37155   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+BHARTIARTL 37143   498 2024-08-22 09:15:00+05:30 2026-08-22 15:05:00+05:30      0         0         2          18         0             0  CHECK
+      BPCL 37133   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+ BRITANNIA 37129   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+     CIPLA 37138   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+ COALINDIA 37141   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+   DRREDDY 37138   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+ EICHERMOT 37135   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+    GRASIM 37131   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+   HCLTECH 37137   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+  HDFCBANK 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
+  HDFCLIFE 37134   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+HEROMOTOCO 37130   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+  HINDALCO 37135   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+HINDUNILVR 37125   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          19         0             0  CHECK
+ ICICIBANK 37168   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+INDUSINDBK 37133   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+      INFY 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
+       ITC 37154   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          19         0             0  CHECK
+  JSWSTEEL 37140   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+ KOTAKBANK 37142   498 2024-08-22 09:15:00+05:30 2026-08-22 12:25:00+05:30      0         0         2          18         0             0  CHECK
+        LT 37143   498 2024-08-22 09:15:00+05:30 2026-08-22 12:25:00+05:30      0         0         2          18         0             0  CHECK
+       M&M 37140   498 2024-08-22 09:15:00+05:30 2026-08-22 12:25:00+05:30      0         0         2          18         0             0  CHECK
+    MARUTI 37133   498 2024-08-22 09:15:00+05:30 2026-08-22 12:25:00+05:30      0         0         2          18         0             0  CHECK
+ NESTLEIND 37131   498 2024-08-22 09:15:00+05:30 2026-08-22 12:25:00+05:30      0         0         2          18         0             0  CHECK
+      NTPC 37135   498 2024-08-22 09:15:00+05:30 2026-08-22 12:15:00+05:30      0         0         2          18         0             0  CHECK
+      ONGC 37136   498 2024-08-22 09:15:00+05:30 2026-08-22 12:25:00+05:30      0         0         3          18         0             0  CHECK
+ POWERGRID 37136   498 2024-08-22 09:15:00+05:30 2026-08-22 12:15:00+05:30      0         0         3          18         0             0  CHECK
+  RELIANCE 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
+   SBILIFE 37132   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          18         0             0  CHECK
+      SBIN 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
+SHRIRAMFIN 37129   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          18         0             0  CHECK
+ SUNPHARMA 37138   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+TATACONSUM 37132   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          18         0             0  CHECK
+TATAMOTORS 37142   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          19         0             0  CHECK
+ TATASTEEL 37171   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          18         0             0  CHECK
+       TCS 36942   493 2024-08-22 09:15:00+05:30 2026-08-21 15:10:00+05:30      0         0         0          15         0             0     OK
+     TECHM 37131   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          18         0             0  CHECK
+     TITAN 37131   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          18         0             0  CHECK
+     TRENT 37131   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
+ULTRACEMCO 37127   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         3          18         0             0  CHECK
+     WIPRO 37167   498 2024-08-22 09:15:00+05:30 2026-08-22 15:10:00+05:30      0         0         2          18         0             0  CHECK
 
-OK: 5/5
+OK: 5/50
+
+NEEDS ATTENTION:
+  ADANIENT: status=CHECK suspect_gaps=0 
+  ADANIPORTS: status=CHECK suspect_gaps=0 
+  APOLLOHOSP: status=CHECK suspect_gaps=0 
+  ASIANPAINT: status=CHECK suspect_gaps=0 
+  AXISBANK: status=CHECK suspect_gaps=0 
+  BAJAJ-AUTO: status=CHECK suspect_gaps=0 
+  BAJAJFINSV: status=CHECK suspect_gaps=0 
+  BAJFINANCE: status=CHECK suspect_gaps=0 
+  BEL: status=CHECK suspect_gaps=0 
+  BHARTIARTL: status=CHECK suspect_gaps=0 
+  BPCL: status=CHECK suspect_gaps=0 
+  BRITANNIA: status=CHECK suspect_gaps=0 
+  CIPLA: status=CHECK suspect_gaps=0 
+  COALINDIA: status=CHECK suspect_gaps=0 
+  DRREDDY: status=CHECK suspect_gaps=0 
+  EICHERMOT: status=CHECK suspect_gaps=0 
+  GRASIM: status=CHECK suspect_gaps=0 
+  HCLTECH: status=CHECK suspect_gaps=0 
+  HDFCLIFE: status=CHECK suspect_gaps=0 
+  HEROMOTOCO: status=CHECK suspect_gaps=0 
+  HINDALCO: status=CHECK suspect_gaps=0 
+  HINDUNILVR: status=CHECK suspect_gaps=0 
+  ICICIBANK: status=CHECK suspect_gaps=0 
+  INDUSINDBK: status=CHECK suspect_gaps=0 
+  ITC: status=CHECK suspect_gaps=0 
+  JSWSTEEL: status=CHECK suspect_gaps=0 
+  KOTAKBANK: status=CHECK suspect_gaps=0 
+  LT: status=CHECK suspect_gaps=0 
+  M&M: status=CHECK suspect_gaps=0 
+  MARUTI: status=CHECK suspect_gaps=0 
+  NESTLEIND: status=CHECK suspect_gaps=0 
+  NTPC: status=CHECK suspect_gaps=0 
+  ONGC: status=CHECK suspect_gaps=0 
+  POWERGRID: status=CHECK suspect_gaps=0 
+  SBILIFE: status=CHECK suspect_gaps=0 
+  SHRIRAMFIN: status=CHECK suspect_gaps=0 
+  SUNPHARMA: status=CHECK suspect_gaps=0 
+  TATACONSUM: status=CHECK suspect_gaps=0 
+  TATAMOTORS: status=CHECK suspect_gaps=0 
+  TATASTEEL: status=CHECK suspect_gaps=0 
+  TECHM: status=CHECK suspect_gaps=0 
+  TITAN: status=CHECK suspect_gaps=0 
+  TRENT: status=CHECK suspect_gaps=0 
+  ULTRACEMCO: status=CHECK suspect_gaps=0 
+  WIPRO: status=CHECK suspect_gaps=0 
+
+A >15% overnight gap almost always means an unadjusted split or
+bonus. That fabricates a huge fake signal for a gap strategy, so
+fix or drop those symbols before backtesting them.

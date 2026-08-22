@@ -89,7 +89,7 @@ def evaluate(data_by_symbol, label, **params):
     return {
         "variant": label,
         "trades": len(g),
-        "per_stock_yr": len(g) / 5 / 2,
+        "per_stock_yr": len(g) / max(len(data_by_symbol), 1) / 2,
         "gross_bps": gm,
         "gross_t": gm / gse,
         "cost_bps": gm - nm,
@@ -137,7 +137,7 @@ def main():
     pd.set_option("display.width", 250)
 
     print("\n" + "=" * 118)
-    print("  DYNAMIC GAP + RVOL MOMENTUM - pooled across 5 stocks, 2 years")
+    print(f"  DYNAMIC GAP + RVOL MOMENTUM - pooled across {len(data)} stocks, 2 years")
     print("=" * 118)
     show = df[["variant", "trades", "per_stock_yr", "gross_bps", "gross_t",
                "cost_bps", "net_bps", "net_t", "med_notional", "avg_return_pct"]]
