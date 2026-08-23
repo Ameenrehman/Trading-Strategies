@@ -1,0 +1,52 @@
+name: Deep Strategy Backtest & Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: 'Strategy script to run'
+        required: true
+        default: 'backtest/ema_pullback_analysis.py'
+        type: choice
+        options:
+          - backtest/ema_pullback_analysis.py
+          - backtest/test_ema_pullback.py
+  push:
+    paths:
+      - 'strategies/**'
+      - 'backtest/**'
+      - '.github/workflows/backtest.yml'
+
+jobs:
+  run-backtest-matrix:
+    name: Run Intraday Backtest Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas matplotlib scipy
+
+      - name: Execute Strategy Backtest & Monte Carlo
+        run: |
+          python ${{ inputs.strategy || 'backtest/ema_pullback_analysis.py' }}
+
+      - name: Archive Backtest Results & Charts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backtest-artifacts-${{ github.sha }}
+          path: |
+            backtest/results/ema_pullback/
+          retention-days: 30
