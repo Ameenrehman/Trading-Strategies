@@ -1,5 +1,6 @@
 name: Deep Strategy Backtest & Analysis
 
+# Only run manually on demand via GitHub Actions UI ("Run workflow" button)
 on:
   workflow_dispatch:
     inputs:
@@ -11,11 +12,6 @@ on:
         options:
           - backtest/ema_pullback_analysis.py
           - backtest/test_ema_pullback.py
-  push:
-    paths:
-      - 'strategies/**'
-      - 'backtest/**'
-      - '.github/workflows/backtest.yml'
 
 jobs:
   run-backtest-matrix:
