@@ -12,16 +12,25 @@ on:
         options:
           - backtest/ema_pullback_analysis.py
           - backtest/test_ema_pullback.py
+      commit_results:
+        description: 'Automatically commit and push results back to this branch'
+        required: true
+        default: true
+        type: boolean
 
 jobs:
   run-backtest-matrix:
     name: Run Intraday Backtest Suite
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Inspect Runner Hardware & Environment
         run: |
@@ -73,3 +82,24 @@ jobs:
           path: |
             backtest/results/ema_pullback/
           retention-days: 30
+
+      - name: Commit & Push Results to Branch
+        if: ${{ inputs.commit_results != false }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Pull latest in case of any concurrent changes
+          git pull --rebase origin ${{ github.ref_name }}
+          
+          # Stage result files
+          git add backtest/results/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No result changes to commit."
+          else
+            git commit -m "chore(backtest): Automated results update [skip ci]"
+            git push origin ${{ github.ref_name }}
+            echo "Results committed and pushed to branch ${{ github.ref_name }} successfully."
+          fi
