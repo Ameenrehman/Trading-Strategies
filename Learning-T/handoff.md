@@ -19,11 +19,14 @@ Ameen is building an automated systematic trading system for the Indian stock ma
   - **Criterion 6 (recent 5 years): PASS at +8.92%/yr.**
   - **Permutation test: 0 of 400** time-shuffled runs matched the real edge (z = 6.73), clearing the Bonferroni bar for 14 variants.
   - **All six pre-registered criteria pass.**
-- **Phase 2 (local paper trading) — IMPLEMENTED & READY FOR FORWARD TRACKING.**
-  - `live/paper_broker.py` — simulated fills using live SmartAPI opening quotes without live order risk or static IP requirements.
-  - `live/track_performance.py` — mark-to-market NAV calculator, position P&L tracker, and real vs assumed slippage auditor.
-  - `live/test_paper_broker.py` — 2/2 unit tests passing (execution invariants, cash protection, slippage formulas).
-  - `live/paper_ledger.csv` & `live/positions.json` — persistent trade and portfolio audit trail.
+- **Phase 2 (local paper trading) — BUILT, REVIEWED, FIXED, READY TO RUN FORWARD.**
+  - `live/portfolio_state.py` — the single definition of `positions.json`. The generator and the broker previously wrote two different schemas to the same file; see `phase-2-paper-trading.md` for both failure directions.
+  - `live/paper_broker.py` — simulated fills against read-only SmartAPI quotes. **Refuses to fill on or before the signal date.**
+  - `live/track_performance.py` — NAV against equal-weight buy-and-hold over the same window, plus a cost and slippage audit reported with its standard error.
+  - `live/dashboard.py` — the book as one self-contained local HTML page (`python live/dashboard.py --open`). The HTML is gitignored as generated output; the underlying `positions.json` and `paper_ledger.csv` are committed while the book is simulated, and must be re-ignored before Phase 3.
+  - `live/test_paper_broker.py` — 2/2 passing.
+  - **Five defects were found and fixed in review.** One was a look-ahead that filled at an open preceding the signal, measuring −5.3 bps of slippage and reading as a clean pass. Written up in full in `phase-2-paper-trading.md`.
+- **The slippage assumption is now MEASURED, and Phase 2 was not the thing that measured it.** `backtest/test_execution_gap.py` over 1,740 historical legs: net **+0.8 bps/leg** across buys and sells, momentum-specific excess **+4.5 bps** (t = 1.44, not significant) against the **5 bps assumed**. The cost model is conservative. Per-leg noise is 112 bps, so paper trading would need ~13 years to resolve this — judge Phase 2 on pipeline correctness and forward record, not on its slippage mean. Market impact remains unmeasured and does need live orders.
 - **Data is now committed** — `data/daily/` (205 symbols × 15 yrs) and `data/intraday_5min/` (50 × 2 yrs). Everything reproduces with no network and no credentials.
 - **Nothing has touched live money.** No live capital risked.
 
@@ -54,9 +57,11 @@ Ameen is building an automated systematic trading system for the Indian stock ma
    ```bash
    python live/paper_broker.py
    ```
+   Must be a **later day** than step 1 — the broker enforces this.
 3. **Daily Performance & Slippage Tracking**:
    ```bash
    python live/track_performance.py
+   python live/dashboard.py --open      # same thing, as a page
    ```
 
 Do not fund an account for Phase 3 until paper trading has accumulated a meaningful track record of measured slippage across multiple rebalance dates.

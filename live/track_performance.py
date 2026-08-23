@@ -1,29 +1,30 @@
 """
-Performance Tracker and Mark-to-Market NAV Auditor (Phase 2).
+Mark the paper book to market, against the benchmark that actually matters.
 
-Tracks the live paper trading portfolio against:
-  1. Equal-Weight Buy & Hold Benchmark.
-  2. The Backtest's Expected Returns & Slippage Assumptions.
+A long-only equity book making money proves nothing — the market rises. The
+whole Phase 1b case rests on beating equal-weight buy-and-hold by >=3%/yr after
+costs, so that comparison is computed here rather than described. Without it a
+green P&L number is not evidence of anything.
 
-Computes:
-  - Current Holdings Market Value, Cash Balance, and Total NAV.
-  - Realized Slippage Statistics (Mean, Median, Max bps).
-  - Realized Delivery Transaction Costs (STT, DP charges, Brokerage).
-  - Open Position P&L and Portfolio Return.
+Three things this reports, in descending order of how much they should move a
+decision:
+
+  1. NAV vs equal-weight buy-and-hold over the SAME elapsed window. This is the
+     forward out-of-sample record the compromised 24-month holdout can no
+     longer provide, and the only one that accrues honestly from here.
+  2. Realised costs against the modelled delivery cost. Cheap to verify and
+     should match closely — the cost model is arithmetic, not a forecast.
+  3. Realised slippage, reported WITH its standard error. Per-leg noise is
+     ~112 bps (see backtest/test_execution_gap.py), so a handful of rebalances
+     cannot resolve 5 bps. Printed for completeness, not for judgement.
 
 Usage:
-  # Check portfolio NAV and slippage audit using latest daily closes
-  python live/track_performance.py
-
-  # Mark-to-market using live quotes from SmartAPI
-  python live/track_performance.py --live
+    python live/track_performance.py
+    python live/track_performance.py --live      # mark against live quotes
 """
 
 import argparse
-import json
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -33,156 +34,247 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from backtest.portfolio import load_daily
-from live.paper_broker import POSITIONS_FILE, LEDGER_FILE, load_positions, fetch_live_quotes
-from data.fetch_universe import load_credentials, authenticate
+from live.portfolio_state import POSITIONS_FILE, LEDGER_FILE, load_positions
+
+ASSUMED_SLIPPAGE_BPS = 5.0
 
 
-def analyze_ledger() -> dict:
-    """Read paper_ledger.csv and compute cumulative slippage and transaction costs."""
+def read_ledger() -> pd.DataFrame:
     if not LEDGER_FILE.exists():
-        return {}
-    df = pd.read_csv(LEDGER_FILE)
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(LEDGER_FILE)
+    except Exception:
+        return pd.DataFrame()
+
+
+def analyse_ledger(df: pd.DataFrame) -> dict:
+    """Cumulative traded value, costs, and slippage with its standard error."""
     if df.empty:
         return {}
-
-    buys = df[df["action"] == "BUY"]
-    sells = df[df["action"] == "SELL"]
-
-    total_traded = df["traded_value"].sum()
-    total_costs = df["cost_inr"].sum()
-    all_slippage = df["slippage_bps"].dropna()
-
+    slip = pd.to_numeric(df.get("slippage_bps"), errors="coerce").dropna()
+    traded = float(df["traded_value"].sum())
+    costs = float(df["cost_inr"].sum())
+    n = len(slip)
+    se = float(slip.std(ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
     return {
-        "total_trades": len(df),
-        "total_buys": len(buys),
-        "total_sells": len(sells),
-        "total_traded_value": total_traded,
-        "total_costs_paid": total_costs,
-        "mean_slippage_bps": all_slippage.mean() if len(all_slippage) else 0.0,
-        "median_slippage_bps": all_slippage.median() if len(all_slippage) else 0.0,
-        "max_slippage_bps": all_slippage.max() if len(all_slippage) else 0.0,
-        "min_slippage_bps": all_slippage.min() if len(all_slippage) else 0.0,
-        "slippage_cost_est_inr": (total_traded * (all_slippage.mean() / 10000.0)) if len(all_slippage) else 0.0,
+        "n_trades": len(df),
+        "n_buys": int((df["action"] == "BUY").sum()),
+        "n_sells": int((df["action"] == "SELL").sum()),
+        "traded_value": traded,
+        "costs_paid": costs,
+        "cost_bps": costs / traded * 1e4 if traded else 0.0,
+        "slip_mean": float(slip.mean()) if n else 0.0,
+        "slip_median": float(slip.median()) if n else 0.0,
+        "slip_se": se,
+        "slip_min": float(slip.min()) if n else 0.0,
+        "slip_max": float(slip.max()) if n else 0.0,
+        "slip_n": n,
+        "mock_rows": int((df.get("source", pd.Series(dtype=str)) == "mock").sum()),
     }
 
 
-def compute_mark_to_market(pos: dict, live_mode: bool = False) -> tuple:
-    """Compute current holdings value and individual position unrealized P&L."""
+def live_prices(symbols: list, latest_closes: pd.Series) -> dict:
+    """Live LTPs where available, latest daily close otherwise."""
+    try:
+        from data.fetch_universe import load_credentials, authenticate
+        from live.paper_broker import fetch_live_quotes
+        quotes = fetch_live_quotes(authenticate(load_credentials()), symbols)
+        return {s: quotes.get(s, {}).get("ltp", latest_closes.get(s, np.nan))
+                for s in symbols}
+    except Exception as e:
+        print(f"  [WARN] Live quotes unavailable ({e}). Using latest close.")
+        return {s: latest_closes.get(s, np.nan) for s in symbols}
+
+
+def mark_to_market(pos: dict, closes: pd.DataFrame, ledger: pd.DataFrame,
+                   use_live: bool):
+    """Per-holding valuation table and total market value."""
     holdings = pos.get("holdings", {})
     if not holdings:
-        return {}, 0.0
+        return pd.DataFrame(), 0.0
 
-    closes, _ = load_daily()
-    latest_closes = closes.iloc[-1]
-    symbols = list(holdings.keys())
+    latest = closes.iloc[-1]
+    symbols = list(holdings)
+    prices = live_prices(symbols, latest) if use_live else \
+        {s: latest.get(s, np.nan) for s in symbols}
 
-    prices = {}
-    if live_mode:
-        try:
-            creds = load_credentials()
-            smart = authenticate(creds)
-            quotes = fetch_live_quotes(smart, symbols)
-            for s in symbols:
-                prices[s] = quotes.get(s, {}).get("ltp", latest_closes.get(s, np.nan))
-        except Exception as e:
-            print(f"[WARN] Live quote fetch failed: {e}. Falling back to latest daily close.")
-            for s in symbols:
-                prices[s] = latest_closes.get(s, np.nan)
-    else:
+    entry = {}
+    if not ledger.empty:
+        buys = ledger[ledger["action"] == "BUY"]
         for s in symbols:
-            prices[s] = latest_closes.get(s, np.nan)
+            b = buys[buys["symbol"] == s]
+            q = b["qty"].sum()
+            if q > 0:
+                entry[s] = float((b["qty"] * b["fill_price"]).sum() / q)
 
-    # Check average entry price from ledger if available
-    entry_prices = {}
-    if LEDGER_FILE.exists():
-        df = pd.read_csv(LEDGER_FILE)
-        for s in symbols:
-            s_buys = df[(df["symbol"] == s) & (df["action"] == "BUY")]
-            if not s_buys.empty:
-                # weighted average fill price
-                total_val = (s_buys["qty"] * s_buys["fill_price"]).sum()
-                total_q = s_buys["qty"].sum()
-                entry_prices[s] = total_val / total_q if total_q > 0 else np.nan
-
-    table = []
-    total_val = 0.0
-
+    rows, total = [], 0.0
     for s, qty in holdings.items():
-        curr_p = prices.get(s, np.nan)
-        val = qty * curr_p if np.isfinite(curr_p) else 0.0
-        total_val += val
-        avg_entry = entry_prices.get(s, curr_p)
-        unrealized_pnl = (curr_p - avg_entry) * qty if np.isfinite(curr_p) and np.isfinite(avg_entry) else 0.0
-        unrealized_pct = ((curr_p / avg_entry) - 1.0) * 100.0 if np.isfinite(curr_p) and np.isfinite(avg_entry) and avg_entry > 0 else 0.0
+        px = prices.get(s, np.nan)
+        val = qty * px if np.isfinite(px) else 0.0
+        total += val
+        avg = entry.get(s, np.nan)
+        pnl = (px - avg) * qty if np.isfinite(px) and np.isfinite(avg) else np.nan
+        pct = (px / avg - 1) * 100 if np.isfinite(px) and np.isfinite(avg) and avg > 0 else np.nan
+        rows.append({"Symbol": s, "Qty": qty, "Entry": avg, "Price": px,
+                     "Value": val, "P&L": pnl, "Ret%": pct})
+    df = pd.DataFrame(rows).sort_values("Value", ascending=False)
+    return df, total
 
-        table.append({
-            "Symbol": s,
-            "Qty": qty,
-            "Entry Px": avg_entry,
-            "Current Px": curr_p,
-            "Value (Rs)": val,
-            "Unrealized P&L": unrealized_pnl,
-            "Return %": unrealized_pct,
-        })
 
-    return pd.DataFrame(table), total_val
+def benchmark_nav(closes: pd.DataFrame, start_date, capital: float):
+    """
+    Equal-weight buy-and-hold NAV over the same window as the paper book.
+
+    Equal-weight buy-and-hold needs no portfolio engine: with capital split
+    evenly at inception, NAV is just capital x mean(price_now / price_start)
+    across the names that were tradable on the start date.
+    """
+    idx = closes.index
+    start = pd.Timestamp(start_date)
+    prior = idx[idx <= start]
+    if len(prior) == 0:
+        return None
+    d0 = prior[-1]
+    p0, p1 = closes.loc[d0], closes.iloc[-1]
+    ok = p0.notna() & p1.notna() & (p0 > 0)
+    if not ok.any():
+        return None
+    growth = float((p1[ok] / p0[ok]).mean())
+    return {"start": d0, "end": idx[-1], "n_symbols": int(ok.sum()),
+            "growth": growth, "nav": capital * growth,
+            "return_pct": (growth - 1) * 100}
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Phase 2 Paper Portfolio Tracker")
-    ap.add_argument("--live", action="store_true", help="Fetch live real-time prices from SmartAPI")
+    ap = argparse.ArgumentParser(description="Phase 2 paper portfolio tracker")
+    ap.add_argument("--live", action="store_true",
+                    help="Mark against live SmartAPI quotes instead of last close")
     args = ap.parse_args()
 
     pos = load_positions()
-    initial_cap = float(pos.get("capital", 1_000_000.0))
-    holdings_df, holdings_val = compute_mark_to_market(pos, live_mode=args.live)
-    if "cash" in pos:
-        cash = float(pos["cash"])
+    ledger = read_ledger()
+    closes, _ = load_daily()
+
+    capital = float(pos.get("capital", 1_000_000.0))
+    cash = float(pos.get("cash", 0.0))
+    table, holdings_val = mark_to_market(pos, closes, ledger, args.live)
+    nav = cash + holdings_val
+    pnl = nav - capital
+
+    print("=" * 92)
+    print("  PAPER PORTFOLIO — DELIVERY MOMENTUM")
+    print("=" * 92)
+
+    if ledger.empty and not pos.get("holdings"):
+        print("\n  Nothing traded yet. The book is uninvested.\n")
+        print(f"    Capital : Rs.{capital:,.2f}")
+        print(f"    Cash    : Rs.{cash:,.2f}\n")
+        print("  Start it with:")
+        print("    python live/generate_orders.py --force --rank-buffer 20")
+        print("    python live/paper_broker.py          # the NEXT trading morning")
+        print("=" * 92)
+        return
+
+    print(f"  As of            : {pos.get('as_of') or 'not set'}")
+    print(f"  Priced from      : "
+          f"{'live quotes' if args.live else f'daily close {closes.index[-1].date()}'}")
+    print(f"  Capital          : Rs.{capital:,.2f}")
+    print(f"  Holdings         : Rs.{holdings_val:,.2f}  ({len(pos.get('holdings', {}))} names)")
+    print(f"  Cash             : Rs.{cash:,.2f}")
+    print(f"  NAV              : Rs.{nav:,.2f}")
+    print(f"  P&L              : Rs.{pnl:+,.2f}  ({pnl / capital * 100:+.2f}%)")
+
+    # ---------------------------------------------------- the comparison
+    start_date = None
+    if not ledger.empty and "fill_date" in ledger.columns:
+        fd = pd.to_datetime(ledger["fill_date"], errors="coerce").dropna()
+        if len(fd):
+            start_date = fd.min()
+    if start_date is None:
+        start_date = pd.to_datetime(pos.get("as_of"), errors="coerce")
+
+    print("\n" + "=" * 92)
+    print("  VS EQUAL-WEIGHT BUY-AND-HOLD  —  the bar Phase 1b was set against")
+    print("=" * 92)
+    bench = benchmark_nav(closes, start_date, capital) if pd.notna(start_date) else None
+    if bench is None:
+        print("  Not computable yet — no inception date recorded in the ledger.")
     else:
-        cash = initial_cap - holdings_val if holdings_val < initial_cap else 0.0
-    total_nav = cash + holdings_val
-    pnl = total_nav - initial_cap
-    return_pct = (pnl / initial_cap) * 100.0
-
-    ledger_stats = analyze_ledger()
-
-    print("=" * 86)
-    print("  PHASE 2 — DELIVERY MOMENTUM PAPER PORTFOLIO PERFORMANCE")
-    print("=" * 86)
-    print(f"  As Of Date       : {pos.get('as_of', 'Not set')}")
-    print(f"  Initial Capital  : Rs.{initial_cap:,.2f}")
-    print(f"  Holdings Value   : Rs.{holdings_val:,.2f}")
-    print(f"  Available Cash   : Rs.{cash:,.2f}")
-    print(f"  Total NAV        : Rs.{total_nav:,.2f}")
-    print(f"  Total P&L        : Rs.{pnl:+,.2f} ({return_pct:+.2f}%)")
-    print("=" * 86)
-
-    if not holdings_df.empty:
-        print("\nCURRENT HOLDINGS")
-        print("-" * 86)
-        pd.set_option("display.width", 200)
-        print(holdings_df.to_string(index=False))
-
-    if ledger_stats:
-        print("\n" + "=" * 86)
-        print("  SLIPPAGE & COST AUDIT (vs Backtest Assumptions)")
-        print("=" * 86)
-        print(f"  Total Trades     : {ledger_stats['total_trades']} ({ledger_stats['total_buys']} buys, {ledger_stats['total_sells']} sells)")
-        print(f"  Total Traded Val : Rs.{ledger_stats['total_traded_value']:,.2f}")
-        print(f"  Total Costs Paid : Rs.{ledger_stats['total_costs_paid']:,.2f} ({ledger_stats['total_costs_paid'] / ledger_stats['total_traded_value'] * 1e4:.1f} bps)")
-        print(f"  Realized Slippage: Mean {ledger_stats['mean_slippage_bps']:+.2f} bps | Median {ledger_stats['median_slippage_bps']:+.2f} bps")
-        print(f"  Slippage Range   : Min {ledger_stats['min_slippage_bps']:+.2f} bps | Max {ledger_stats['max_slippage_bps']:+.2f} bps")
-        print(f"  Est Slippage Drag: Rs.{ledger_stats['slippage_cost_est_inr']:,.2f}")
-
-        diff = ledger_stats['mean_slippage_bps'] - 5.0
-        print(f"\n  Slippage Assessment vs Backtest:")
-        if abs(diff) <= 2.0:
-            print(f"  [PASS] Realized slippage ({ledger_stats['mean_slippage_bps']:.2f} bps) closely matches backtest assumption (5.00 bps).")
-        elif diff > 2.0:
-            print(f"  [CAUTION] Realized slippage ({ledger_stats['mean_slippage_bps']:.2f} bps) is HIGHER than the backtest assumption (5.00 bps).")
+        days = max((bench["end"] - bench["start"]).days, 1)
+        strat_ret = pnl / capital * 100
+        edge = strat_ret - bench["return_pct"]
+        print(f"  Window           : {bench['start'].date()} -> {bench['end'].date()} "
+              f"({days} days, {bench['n_symbols']} symbols)")
+        print(f"  Momentum book    : {strat_ret:+.2f}%   (NAV Rs.{nav:,.0f})")
+        print(f"  Buy-and-hold     : {bench['return_pct']:+.2f}%   "
+              f"(NAV Rs.{bench['nav']:,.0f})")
+        print(f"  Edge             : {edge:+.2f}%")
+        if days >= 365:
+            yrs = days / 365.25
+            ann = ((nav / capital) ** (1 / yrs) - 1) * 100
+            bann = (bench["growth"] ** (1 / yrs) - 1) * 100
+            print(f"  Annualised       : momentum {ann:+.2f}%/yr vs "
+                  f"benchmark {bann:+.2f}%/yr  (edge {ann - bann:+.2f}%/yr)")
+            print(f"  Criterion 1 bar  : +3.00%/yr  "
+                  f"[{'PASS' if ann - bann >= 3 else 'not met'}]")
         else:
-            print(f"  [PASS] Realized slippage ({ledger_stats['mean_slippage_bps']:.2f} bps) is LOWER than the backtest assumption (5.00 bps).")
-    print("=" * 86)
+            print(f"\n  Too short to annualise ({days} days). Backtested monthly")
+            print("  edge is ~1%, against monthly swings of several percent — a")
+            print("  window this size cannot separate skill from noise. Read it")
+            print("  as a wiring check, not a result.")
+
+    if not table.empty:
+        print("\n" + "=" * 92)
+        print("  HOLDINGS")
+        print("=" * 92)
+        pd.set_option("display.width", 200)
+        print(table.to_string(index=False, float_format=lambda x: f"{x:,.2f}"))
+
+    # ---------------------------------------------------- costs & slippage
+    st = analyse_ledger(ledger)
+    if st:
+        print("\n" + "=" * 92)
+        print("  EXECUTION AUDIT")
+        print("=" * 92)
+        if st["mock_rows"]:
+            print(f"  [WARN] {st['mock_rows']} of {st['n_trades']} ledger rows are "
+                  f"MOCK fills. Synthetic slippage")
+            print(f"         is recovered exactly as injected and measures nothing. "
+                  f"Delete {LEDGER_FILE.name}")
+            print(f"         before the first real run.")
+        print(f"  Trades           : {st['n_trades']} "
+              f"({st['n_buys']} buys, {st['n_sells']} sells)")
+        print(f"  Traded value     : Rs.{st['traded_value']:,.2f}")
+        print(f"  Costs paid       : Rs.{st['costs_paid']:,.2f} "
+              f"({st['cost_bps']:.1f} bps)")
+        print(f"  Slippage         : mean {st['slip_mean']:+.2f} bps, "
+              f"median {st['slip_median']:+.2f}, "
+              f"range {st['slip_min']:+.1f}..{st['slip_max']:+.1f}")
+
+        se = st["slip_se"]
+        if np.isfinite(se) and se > 0:
+            lo, hi = st["slip_mean"] - 2 * se, st["slip_mean"] + 2 * se
+            print(f"  95% interval     : {lo:+.1f} .. {hi:+.1f} bps "
+                  f"(n={st['slip_n']}, SE {se:.2f})")
+            if lo <= ASSUMED_SLIPPAGE_BPS <= hi:
+                print(f"  vs {ASSUMED_SLIPPAGE_BPS:.0f} bps assumed : consistent — "
+                      f"but the interval is {hi - lo:.1f} bps wide, so this is")
+                print(f"                     not yet evidence either way.")
+            elif hi < ASSUMED_SLIPPAGE_BPS:
+                print(f"  vs {ASSUMED_SLIPPAGE_BPS:.0f} bps assumed : realised is "
+                      f"LOWER — the cost model is conservative.")
+            else:
+                print(f"  vs {ASSUMED_SLIPPAGE_BPS:.0f} bps assumed : realised is "
+                      f"HIGHER. Check fill timing and order sizes")
+                print(f"                     in the thinnest names before "
+                      f"reading anything else.")
+        print()
+        print("  Per-leg noise is ~112 bps (backtest/test_execution_gap.py), so")
+        print("  ~3,100 legs are needed to pin the mean to +/-2 bps. Paper trading")
+        print("  will not settle the slippage question; that script already did.")
+
+    print("=" * 92)
 
 
 if __name__ == "__main__":

@@ -242,11 +242,13 @@ backtest/
   test_gap_rvol.py / test_gap_controls.py   # intraday (rejected)
 live/
   generate_orders.py     # the actual buy/sell list, sharing the backtest's signal code
-  paper_broker.py        # simulated execution against live SmartAPI opening quotes
-  track_performance.py   # mark-to-market NAV calculator & real slippage auditor
+  portfolio_state.py     # the ONE definition of positions.json (see its docstring)
+  paper_broker.py        # simulated fills against live opening quotes
+  track_performance.py   # mark-to-market NAV vs buy-and-hold, plus a cost audit
+  dashboard.py           # renders the book as a self-contained local HTML page
   test_paper_broker.py   # unit tests for paper execution invariants
-  positions.json         # active paper portfolio state (holdings & cash)
-  paper_ledger.csv       # append-only trade audit log
+  positions.json         # paper portfolio state (committed during Phase 2)
+  paper_ledger.csv       # append-only fill log (committed during Phase 2)
 data/
   fetch_universe.py      # chunked fetcher (5-min and daily) with integrity audit
   corporate_actions.py   # detects and neutralises unadjusted splits/demergers
@@ -306,7 +308,38 @@ python live/paper_broker.py --mock        # offline / testing mode
 
 # 4. Audit portfolio NAV, unrealized P&L, and slippage vs backtest assumptions:
 python live/track_performance.py
+
+# 5. Same thing as a page you can actually look at (writes live/dashboard.html):
+python live/dashboard.py --open
 ```
+
+Step 3 must run on a **later** day than step 2. The signal comes from the close
+of day T, so filling at day T's own open buys six hours before the signal
+existed — a look-ahead that reports favourable slippage and reads as free
+money. `paper_broker.py` refuses to do it.
+
+**What Phase 2 can and cannot establish.** It was scoped to measure slippage.
+It cannot: the close-to-open gap has a standard deviation of ~112 bps per leg,
+so a year of paper trading (~240 legs) pins the mean only to ±7 bps — it cannot
+tell 5 bps from 0 from 15. `backtest/test_execution_gap.py` measures the same
+quantity over 1,740 historical legs instead:
+
+| | bps/leg |
+|---|---:|
+| Buy legs, raw | +30.2 |
+| Sell legs, raw | −29.3 |
+| **Net across both legs** | **+0.8** |
+| Universe-wide overnight drift | +24.9 |
+| **Momentum-specific excess** | **+4.5** (t = 1.44, not significant) |
+
+Buys gap up, but so does the whole market, and the simultaneous sells recover
+it. The 5 bps/leg assumption is **conservative**. What remains unmeasured is
+market impact — the difference between the printed open and *your* fill — and
+that genuinely does need live orders.
+
+So paper trading is worth running for what it can show: that the pipeline works
+end to end, and a forward out-of-sample record, which is the only clean one left
+after the 24-month holdout was observed.
 
 Refreshing the data needs Angel One credentials in `.env` (see `.env.example`):
 

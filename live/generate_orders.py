@@ -70,19 +70,10 @@ from backtest.portfolio import load_daily, rebalance_dates
 from backtest.costs import delivery_one_way_cost
 from strategies.momentum_xs import MomentumConfig, select
 
+from live.portfolio_state import (POSITIONS_FILE, load_positions,
+                                  save_positions)
+
 LIVE_DIR = Path(__file__).parent
-POSITIONS_FILE = LIVE_DIR / "positions.json"
-
-
-def load_positions(capital_default):
-    if POSITIONS_FILE.exists():
-        return json.loads(POSITIONS_FILE.read_text(encoding="utf-8"))
-    return {"as_of": None, "capital": capital_default, "holdings": {}}
-
-
-def save_positions(pos):
-    POSITIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    POSITIONS_FILE.write_text(json.dumps(pos, indent=2), encoding="utf-8")
 
 
 def main():
@@ -169,8 +160,15 @@ def main():
     holdings_value = sum(qty * latest_px.get(s, np.nan)
                          for s, qty in pos["holdings"].items()
                          if np.isfinite(latest_px.get(s, np.nan)))
-    cash = args.cash if args.cash is not None else (
-        pos["capital"] if not pos["holdings"] else 0.0)
+    # Use the tracked cash balance. Hardcoding 0 whenever holdings existed
+    # stranded every rupee the paper broker released on a sell, so the book
+    # bled into dead cash a little more at each rebalance.
+    if args.cash is not None:
+        cash = args.cash
+    elif pos["holdings"]:
+        cash = float(pos.get("cash", 0.0))
+    else:
+        cash = float(pos.get("cash", pos["capital"]))
     total_value = holdings_value + cash
     per_name = total_value / len(target)
 
@@ -255,8 +253,16 @@ def main():
         d = int(r["qty"]) * (1 if r["action"] == "BUY" else -1)
         projected[r["symbol"]] = projected.get(r["symbol"], 0) + d
     projected = {k: v for k, v in projected.items() if v > 0}
+    # Cash moves with the intended trades so the file stays a coherent book.
+    # Writing no "cash" key at all used to make paper_broker fall back to
+    # `capital` and grant itself a second full portfolio of buying power.
+    projected_cash = cash + sum(
+        r["value"] * (1 if r["action"] == "SELL" else -1)
+        for _, r in orders.iterrows() if r["value"]) - est_cost
     save_positions({"as_of": str(asof.date()), "capital": pos["capital"],
+                    "cash": max(0.0, projected_cash),
                     "holdings": projected,
+                    "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "_note": "INTENDED book from generate_orders. Replace with "
                              "ACTUAL filled quantities before the next rebalance."})
     print(f"    (wrote intended holdings to {POSITIONS_FILE.name} — correct it "

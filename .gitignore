@@ -5,10 +5,21 @@ __pycache__/
 infra/.env
 *.log
 
-# Live trading state — this is a PUBLIC repo. positions.json holds real
-# holdings and share counts, and orders_*.csv holds real order sizes.
-# Publishing either would expose the actual portfolio and its size.
-live/positions.json
-live/orders_*.csv
-live/paper_ledger.csv
-live/paper_performance.csv
+# Paper-trading state is COMMITTED on purpose during Phase 2.
+#
+# The book is simulated — virtual Rs.10,00,000, no broker account behind it —
+# so publishing it exposes nothing real, and putting the ledger in git history
+# makes the forward out-of-sample record timestamped and tamper-evident. That
+# record is the only clean out-of-sample left after the 24-month holdout was
+# observed, so it is worth more in the repo than out of it.
+#
+# >>> RESTORE THESE BEFORE PHASE 3. <<<
+# The moment real orders are placed, positions.json holds actual holdings and
+# share counts and orders_*.csv holds actual order sizes, on a PUBLIC repo:
+#   live/positions.json
+#   live/orders_*.csv
+#   live/paper_ledger.csv
+#
+# dashboard.html stays ignored either way — it is generated output, fully
+# rebuildable from the two files above, and would churn on every render.
+live/dashboard.html
