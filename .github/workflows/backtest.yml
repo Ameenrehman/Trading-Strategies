@@ -27,6 +27,33 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Inspect Runner Hardware & Environment
+        run: |
+          echo "=================================================="
+          echo "GITHUB RUNNER HARDWARE & SYSTEM SPECS"
+          echo "=================================================="
+          echo "--- OS / Kernel Info ---"
+          uname -a
+          cat /etc/os-release | grep -E 'PRETTY_NAME|VERSION'
+          echo ""
+          echo "--- CPU Configuration ---"
+          echo "Total CPU Cores: $(nproc)"
+          lscpu | grep -E 'Model name|Architecture|CPU\(s\)|Thread\(s\) per core|CPU MHz'
+          echo ""
+          echo "--- Memory (RAM) ---"
+          free -h
+          echo ""
+          echo "--- Storage / Disk Space ---"
+          df -h /
+          echo ""
+          echo "--- GPU Status (if available) ---"
+          if command -v nvidia-smi &> /dev/null; then
+            nvidia-smi
+          else
+            echo "No dedicated NVIDIA GPU detected on this runner."
+          fi
+          echo "=================================================="
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
