@@ -17,7 +17,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from strategies.ema_pullback import (
@@ -26,7 +26,7 @@ from strategies.ema_pullback import (
     TradeManagementMode,
     StrategyConfig,
 )
-from backtest.test_ema_pullback import (
+from backtest.ema_pullback.test_ema_pullback import (
     preload_universe_data,
     run_ema_pullback_universe,
 )

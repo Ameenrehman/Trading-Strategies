@@ -16,10 +16,10 @@ import numpy as np
 import pandas as pd
 from backtesting import Backtest, Strategy
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from backtest.run_backtest import load_data
+from backtest.gap_rvol_orb.run_backtest import load_data
 from backtest.costs import per_side_commission
 
 COMMISSION = per_side_commission(50_000)

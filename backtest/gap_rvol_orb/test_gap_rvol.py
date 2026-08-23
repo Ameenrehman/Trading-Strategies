@@ -22,7 +22,7 @@ import pandas as pd
 
 from backtesting import Backtest
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from strategies.gap_rvol_strategy import GapRVOLMomentum

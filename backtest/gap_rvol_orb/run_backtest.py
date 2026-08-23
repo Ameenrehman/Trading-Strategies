@@ -13,7 +13,7 @@ import pandas as pd
 from backtesting import Backtest
 
 # Add project root to path
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from strategies.orb_strategy import ORBStrategy

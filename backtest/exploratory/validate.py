@@ -17,12 +17,12 @@ import numpy as np
 import pandas as pd
 from backtesting import Backtest
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from strategies.orb_strategy import ORBStrategy
 from backtest.costs import cost_as_fraction
-from backtest.run_backtest import load_data
+from backtest.gap_rvol_orb.run_backtest import load_data
 
 
 # The 5-minute set lives in its own folder so the daily (delivery) data

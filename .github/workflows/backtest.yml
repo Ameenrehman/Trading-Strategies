@@ -7,11 +7,13 @@ on:
       strategy:
         description: 'Strategy script to run'
         required: true
-        default: 'backtest/ema_pullback_analysis.py'
+        default: 'backtest/ema_pullback/ema_pullback_analysis.py'
         type: choice
         options:
-          - backtest/ema_pullback_analysis.py
-          - backtest/test_ema_pullback.py
+          - backtest/ema_pullback/ema_pullback_analysis.py
+          - backtest/ema_pullback/test_ema_pullback.py
+          - backtest/gap_rvol_orb/test_gap_rvol.py
+          - backtest/momentum_delivery/test_momentum.py
       commit_results:
         description: 'Automatically commit and push results back to this branch'
         required: true

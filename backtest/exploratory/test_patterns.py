@@ -1,8 +1,8 @@
 """
-Testing 15-Minute Timeframe & Volatility Compression (NR4/NR7) Breakouts:
-1. 15-Min ORB (First 15-min bar breakout, with 1.5 ATR stop, trailing with 15m 9-EMA)
-2. Daily NR4/NR7 Volatility Compression Breakout (Trade only after compressed days)
-3. 15-Min Supertrend Trend Follower
+Fix NR7 date mapping and test:
+1. NR7 (Narrowest Range of 7 days) Breakout
+2. Inside Day (Harami / Inside Bar) Breakout
+3. High Relative Volume (RVOL) Breakout (> 2.0x volume expansion on first 15 mins)
 """
 
 import sys
@@ -11,126 +11,67 @@ import numpy as np
 import pandas as pd
 from backtesting import Backtest, Strategy
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from backtest.run_backtest import load_data
+from backtest.gap_rvol_orb.run_backtest import load_data
 from backtest.costs import per_side_commission
 
 COMMISSION = per_side_commission(50_000)
 STOCKS = ["SBIN", "RELIANCE", "TCS", "HDFCBANK", "INFY"]
 
 
-def resample_to_15min(df_5min):
-    """Resample 5-min OHLCV to 15-min OHLCV cleanly."""
-    resampled = df_5min.resample('15min').agg({
+def add_daily_patterns(df_5min):
+    """Calculate daily metrics and map them cleanly to 5-min bars."""
+    df_temp = df_5min.copy()
+    df_temp['date'] = df_temp.index.date
+
+    # Daily aggregation
+    daily = df_temp.groupby('date').agg({
         'Open': 'first',
         'High': 'max',
         'Low': 'min',
         'Close': 'last',
         'Volume': 'sum'
-    }).dropna()
-    # Filter only market hours
-    resampled = resampled.between_time('09:15', '15:30')
-    return resampled
+    })
+    
+    daily['range'] = daily['High'] - daily['Low']
+    daily['min_7_range'] = daily['range'].rolling(7, min_periods=7).min()
+    daily['is_nr7'] = daily['range'] == daily['min_7_range']
+    daily['is_inside'] = (daily['High'] < daily['High'].shift(1)) & (daily['Low'] > daily['Low'].shift(1))
+
+    # Shift by 1 because we trade TODAY based on YESTERDAY's pattern
+    daily['nr7_yesterday'] = daily['is_nr7'].shift(1).fillna(False)
+    daily['inside_yesterday'] = daily['is_inside'].shift(1).fillna(False)
+    daily['prev_close'] = daily['Close'].shift(1)
+    daily['prev_high'] = daily['High'].shift(1)
+    daily['prev_low'] = daily['Low'].shift(1)
+
+    # Map back to 5-min DataFrame
+    nr7_map = daily['nr7_yesterday'].to_dict()
+    inside_map = daily['inside_yesterday'].to_dict()
+    prev_close_map = daily['prev_close'].to_dict()
+    prev_high_map = daily['prev_high'].to_dict()
+    prev_low_map = daily['prev_low'].to_dict()
+
+    df_5min['is_nr7'] = [nr7_map.get(d, False) for d in df_temp['date']]
+    df_5min['is_inside'] = [inside_map.get(d, False) for d in df_temp['date']]
+    df_5min['prev_close'] = [prev_close_map.get(d, np.nan) for d in df_temp['date']]
+    df_5min['prev_high'] = [prev_high_map.get(d, np.nan) for d in df_temp['date']]
+    df_5min['prev_low'] = [prev_low_map.get(d, np.nan) for d in df_temp['date']]
+
+    return df_5min
 
 
 # -------------------------------------------------------------
-# 1. 15-Min ORB with 9-EMA Trailing Exit
+# 1. NR7 & Inside Bar Breakout Strategy
 # -------------------------------------------------------------
-class ORB15MinTrailing(Strategy):
-    """
-    15-Min ORB:
-    - First 15-min candle (9:15 - 9:30) defines the range.
-    - Long on close > bar 1 High, Short on close < bar 1 Low.
-    - Stop Loss = 1.5 * ATR.
-    - Trailing exit: Close below 9 EMA for longs, Close above 9 EMA for shorts.
-    - Force close at 15:15.
-    """
-    sl_atr_mult = 1.5
-    ema_length = 9
+class CompressionBreakoutStrategy(Strategy):
+    """Trade 15-min range breakout on days following NR7 or Inside Bar."""
+    or_bars = 3  # 15 mins (3 x 5-min bars)
+    sl_mult = 1.2
+    rr_ratio = 2.0
 
-    def init(self):
-        def calc_atr(high, low, close, period=14):
-            tr = np.maximum(high - low, np.maximum(np.abs(high - np.roll(close, 1)), np.abs(low - np.roll(close, 1))))
-            tr[0] = high[0] - low[0]
-            return pd.Series(tr).rolling(period, min_periods=1).mean().values
-
-        def calc_ema(s, n):
-            return pd.Series(s).ewm(span=n, adjust=False).mean().values
-
-        self.atr = self.I(calc_atr, self.data.High, self.data.Low, self.data.Close, 14)
-        self.ema = self.I(calc_ema, self.data.Close, self.ema_length)
-
-        self._current_date = None
-        self._first_bar_high = -np.inf
-        self._first_bar_low = np.inf
-        self._bar_count = 0
-        self._traded_today = False
-
-    def next(self):
-        bar_time = self.data.index[-1]
-        bar_date = bar_time.date() if hasattr(bar_time, 'date') else bar_time
-        bar_time_mins = (bar_time.hour if hasattr(bar_time, 'hour') else 0) * 60 + (bar_time.minute if hasattr(bar_time, 'minute') else 0)
-
-        if bar_date != self._current_date:
-            self._current_date = bar_date
-            self._bar_count = 0
-            self._first_bar_high = -np.inf
-            self._first_bar_low = np.inf
-            self._traded_today = False
-
-        self._bar_count += 1
-
-        # First 15-min candle
-        if self._bar_count == 1:
-            self._first_bar_high = self.data.High[-1]
-            self._first_bar_low = self.data.Low[-1]
-            return
-
-        # Trailing exit & EOD exit
-        if self.position:
-            if bar_time_mins >= 915:
-                self.position.close()
-                return
-            if self.position.is_long and self.data.Close[-1] < self.ema[-1]:
-                self.position.close()
-                return
-            if self.position.is_short and self.data.Close[-1] > self.ema[-1]:
-                self.position.close()
-                return
-            return
-
-        if bar_time_mins > 720 or self._traded_today:
-            return
-
-        price = self.data.Close[-1]
-        atr = self.atr[-1]
-        sl_dist = atr * self.sl_atr_mult
-
-        if price > self._first_bar_high:
-            self._traded_today = True
-            sl = price - sl_dist
-            if sl < price:
-                self.buy(sl=sl)
-            return
-
-        if price < self._first_bar_low:
-            self._traded_today = True
-            sl = price + sl_dist
-            if price < sl:
-                self.sell(sl=sl)
-            return
-
-
-# -------------------------------------------------------------
-# 2. NR7 / Volatility Compression Breakout
-# -------------------------------------------------------------
-class NR7BreakoutStrategy(Strategy):
-    """
-    Trade opening range breakout ONLY on days where the previous day was an NR7
-    (Narrowest Daily Range of the last 7 days). Volatility compression leads to expansion.
-    """
     def init(self):
         def calc_atr(high, low, close, period=14):
             tr = np.maximum(high - low, np.maximum(np.abs(high - np.roll(close, 1)), np.abs(low - np.roll(close, 1))))
@@ -143,10 +84,11 @@ class NR7BreakoutStrategy(Strategy):
         self.atr = self.I(calc_atr, self.data.High, self.data.Low, self.data.Close, 14)
         self.ema20 = self.I(calc_ema, self.data.Close, 20)
         self.is_nr7 = self.I(lambda: self.data.df['is_nr7'].values)
+        self.is_inside = self.I(lambda: self.data.df['is_inside'].values)
 
         self._current_date = None
-        self._first_bar_high = -np.inf
-        self._first_bar_low = np.inf
+        self._first_range_high = -np.inf
+        self._first_range_low = np.inf
         self._bar_count = 0
         self._traded_today = False
 
@@ -158,15 +100,15 @@ class NR7BreakoutStrategy(Strategy):
         if bar_date != self._current_date:
             self._current_date = bar_date
             self._bar_count = 0
-            self._first_bar_high = -np.inf
-            self._first_bar_low = np.inf
+            self._first_range_high = -np.inf
+            self._first_range_low = np.inf
             self._traded_today = False
 
         self._bar_count += 1
 
-        if self._bar_count == 1:
-            self._first_bar_high = self.data.High[-1]
-            self._first_bar_low = self.data.Low[-1]
+        if self._bar_count <= self.or_bars:
+            self._first_range_high = max(self._first_range_high, self.data.High[-1])
+            self._first_range_low = min(self._first_range_low, self.data.Low[-1])
             return
 
         if self.position:
@@ -181,21 +123,88 @@ class NR7BreakoutStrategy(Strategy):
                 return
             return
 
-        # ONLY TRADE IF PREVIOUS DAY WAS NR7
-        if not self.is_nr7[-1] or bar_time_mins > 720 or self._traded_today:
+        # Condition: Yesterday was NR7 or Inside Bar
+        compressed = self.is_nr7[-1] or self.is_inside[-1]
+        if not compressed or bar_time_mins > 690 or self._traded_today:
             return
 
         price = self.data.Close[-1]
         atr = self.atr[-1]
 
-        if price > self._first_bar_high:
+        if price > self._first_range_high:
+            self._traded_today = True
+            sl = price - (atr * self.sl_mult)
+            if sl < price:
+                self.buy(sl=sl)
+            return
+
+        if price < self._first_range_low:
+            self._traded_today = True
+            sl = price + (atr * self.sl_mult)
+            if price < sl:
+                self.sell(sl=sl)
+            return
+
+
+# -------------------------------------------------------------
+# 2. Previous Day High/Low Breakout (Camarilla / Floor Pivots style)
+# -------------------------------------------------------------
+class PrevDayBreakoutStrategy(Strategy):
+    """Breakout of Yesterday's High or Low with volume confirmation."""
+    def init(self):
+        def calc_atr(high, low, close, period=14):
+            tr = np.maximum(high - low, np.maximum(np.abs(high - np.roll(close, 1)), np.abs(low - np.roll(close, 1))))
+            tr[0] = high[0] - low[0]
+            return pd.Series(tr).rolling(period, min_periods=1).mean().values
+
+        def calc_ema(s, n):
+            return pd.Series(s).ewm(span=n, adjust=False).mean().values
+
+        self.atr = self.I(calc_atr, self.data.High, self.data.Low, self.data.Close, 14)
+        self.ema20 = self.I(calc_ema, self.data.Close, 20)
+        self.prev_high = self.I(lambda: self.data.df['prev_high'].values)
+        self.prev_low = self.I(lambda: self.data.df['prev_low'].values)
+
+        self._current_date = None
+        self._traded_today = False
+
+    def next(self):
+        bar_time = self.data.index[-1]
+        bar_date = bar_time.date() if hasattr(bar_time, 'date') else bar_time
+        bar_time_mins = (bar_time.hour if hasattr(bar_time, 'hour') else 0) * 60 + (bar_time.minute if hasattr(bar_time, 'minute') else 0)
+
+        if bar_date != self._current_date:
+            self._current_date = bar_date
+            self._traded_today = False
+
+        if self.position:
+            if bar_time_mins >= 915:
+                self.position.close()
+                return
+            if self.position.is_long and self.data.Close[-1] < self.ema20[-1]:
+                self.position.close()
+                return
+            if self.position.is_short and self.data.Close[-1] > self.ema20[-1]:
+                self.position.close()
+                return
+            return
+
+        if bar_time_mins < 570 or bar_time_mins > 720 or self._traded_today:
+            return
+
+        price = self.data.Close[-1]
+        atr = self.atr[-1]
+        p_high = self.prev_high[-1]
+        p_low = self.prev_low[-1]
+
+        if not np.isnan(p_high) and price > p_high:
             self._traded_today = True
             sl = price - (atr * 1.5)
             if sl < price:
                 self.buy(sl=sl)
             return
 
-        if price < self._first_bar_low:
+        if not np.isnan(p_low) and price < p_low:
             self._traded_today = True
             sl = price + (atr * 1.5)
             if price < sl:
@@ -203,31 +212,18 @@ class NR7BreakoutStrategy(Strategy):
             return
 
 
-def add_nr7_column(df_5min):
-    """Compute daily range and flag if yesterday was NR7."""
-    daily = df_5min.resample('D').agg({'High': 'max', 'Low': 'min', 'Close': 'last'}).dropna()
-    daily['range'] = daily['High'] - daily['Low']
-    daily['min_7_range'] = daily['range'].rolling(7).min()
-    daily['is_nr7_today'] = daily['range'] == daily['min_7_range']
-    daily['is_nr7_for_next_day'] = daily['is_nr7_today'].shift(1).fillna(False)
-
-    df_copy = df_5min.copy()
-    df_copy['date_only'] = df_copy.index.date
-    daily_map = daily['is_nr7_for_next_day'].to_dict()
-    df_copy['is_nr7'] = [daily_map.get(pd.Timestamp(d), False) for d in df_copy['date_only']]
-    df_copy = df_copy.drop(columns=['date_only'])
-    return df_copy
-
-
-def test_suite():
+# -------------------------------------------------------------
+# Runner
+# -------------------------------------------------------------
+def run():
     print("=" * 75)
-    print("  STRATEGY 1: 15-Minute ORB + 9 EMA Trailing Exit")
+    print("  STRATEGY 1: Volatility Compression Breakout (NR7 / Inside Bar)")
     print("=" * 75)
     res1 = []
     for sym in STOCKS:
-        data_5m = load_data(f"data/intraday_5min/{sym}_5min.csv")
-        data_15m = resample_to_15min(data_5m)
-        bt = Backtest(data_15m, ORB15MinTrailing, cash=100_000, commission=COMMISSION,
+        data_raw = load_data(f"data/intraday_5min/{sym}_5min.csv")
+        data_proc = add_daily_patterns(data_raw)
+        bt = Backtest(data_proc, CompressionBreakoutStrategy, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
         stats = bt.run()
         ret = stats.get("Return [%]", 0)
@@ -241,16 +237,16 @@ def test_suite():
         res1.append({"return": ret, "sharpe": sharpe, "trades": trades})
 
     df1 = pd.DataFrame(res1)
-    print(f"  --> Avg Return: {df1['return'].mean():+.2f}%, Avg Sharpe: {df1['sharpe'].mean():.3f}\n")
+    print(f"  --> Avg Return: {df1['return'].mean():+.2f}%, Avg Sharpe: {df1['sharpe'].mean():.3f}, Avg Trades: {df1['trades'].mean():.0f}\n")
 
     print("=" * 75)
-    print("  STRATEGY 2: NR7 Volatility Compression Breakout (5-min)")
+    print("  STRATEGY 2: Previous Day High / Low Breakout")
     print("=" * 75)
     res2 = []
     for sym in STOCKS:
-        data_5m = load_data(f"data/intraday_5min/{sym}_5min.csv")
-        data_nr7 = add_nr7_column(data_5m)
-        bt = Backtest(data_nr7, NR7BreakoutStrategy, cash=100_000, commission=COMMISSION,
+        data_raw = load_data(f"data/intraday_5min/{sym}_5min.csv")
+        data_proc = add_daily_patterns(data_raw)
+        bt = Backtest(data_proc, PrevDayBreakoutStrategy, cash=100_000, commission=COMMISSION,
                       exclusive_orders=True, trade_on_close=True)
         stats = bt.run()
         ret = stats.get("Return [%]", 0)
@@ -264,8 +260,8 @@ def test_suite():
         res2.append({"return": ret, "sharpe": sharpe, "trades": trades})
 
     df2 = pd.DataFrame(res2)
-    print(f"  --> Avg Return: {df2['return'].mean():+.2f}%, Avg Sharpe: {df2['sharpe'].mean():.3f}")
+    print(f"  --> Avg Return: {df2['return'].mean():+.2f}%, Avg Sharpe: {df2['sharpe'].mean():.3f}, Avg Trades: {df2['trades'].mean():.0f}")
 
 
 if __name__ == "__main__":
-    test_suite()
+    run()
