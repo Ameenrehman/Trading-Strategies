@@ -14,6 +14,7 @@ on:
           - backtest/ema_pullback/test_ema_pullback.py
           - backtest/gap_rvol_orb/test_gap_rvol.py
           - backtest/momentum_delivery/test_momentum.py
+          - backtest/hybrid_momentum/test_screener_gate.py
       commit_results:
         description: 'Automatically commit and push results back to this branch'
         required: true
@@ -83,6 +84,7 @@ jobs:
           name: backtest-artifacts-${{ github.sha }}
           path: |
             backtest/results/ema_pullback/
+            backtest/results/hybrid_momentum/
           retention-days: 30
 
       - name: Commit & Push Results to Branch

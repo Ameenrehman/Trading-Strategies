@@ -1,0 +1,163 @@
+==============================================================================
+  HYBRID MOMENTUM — SCREENER GATE
+==============================================================================
+
+Universe          : 50 symbols (intraday50)
+Panel             : 2011-08-24 -> 2026-08-21  (3,709 dates)
+Dropped dates     : 6 with a collapsed cross-section ['2014-08-27', '2017-08-31', '2020-09-04', '2020-11-14', '2022-03-08', '2025-03-12']
+Corporate actions : 3 symbols truncated ['ADANIENT', 'PATANJALI', 'YESBANK']
+Holdout           : sealed, 24 months (development ends 2024-08-21)
+
+Config            : 60-day ROC skipping 5, weights 0.45/0.25/0.15/0.15
+
+Eligible name-days: 84,358 across 3,115 dates
+
+==============================================================================
+  1. FACTOR OVERLAP — do the six proposed factors carry six signals?
+==============================================================================
+
+Cross-sectional rank correlation, averaged over 459 dates:
+
+            momentum  near_high  volume_exp  volatility
+momentum        1.00      -0.02       -0.09       -0.06
+near_high      -0.02       1.00        0.12       -0.10
+volume_exp     -0.09       0.12        1.00       -0.18
+volatility     -0.06      -0.10       -0.18        1.00
+
+  momentum vs near_high, ORIGINAL 20-day ROC : +0.61
+  momentum vs near_high, corrected 60/skip-5 : -0.02
+  The original pair were close to one factor wearing two hats. The
+  corrected momentum leg decorrelates from it, so the four factors
+  in the built config are genuinely independent inputs.
+
+DROPPED FACTOR 1 — 'relative strength vs the index'
+  rank-identical to plain 20-day ROC on 412/412 dates tested.
+  Subtracting a per-date constant cannot reorder a cross-section, so
+  as a SCORE it contributes nothing. Retained as a regime filter only.
+
+DROPPED FACTOR 2 — 'price above the 50-DMA'
+  Listed as both a hard filter and a 15% weight. Once it is a filter,
+  every surviving name scores identically, so the weight ranks nothing.
+
+==============================================================================
+  2. WHERE THE RETURN LIVES — overnight gap vs intraday session
+==============================================================================
+
+segment                              bps/day    hit %        t
+--------------------------------------------------------------
+overnight  (prev close -> open)        +14.6     70.5     15.9
+intraday   (open -> close)              -6.2     48.5     -4.0
+full day   (close -> close)             +8.3     56.6      4.7
+
+  Essentially the whole of the universe's drift is delivered overnight,
+  and the continuous session is a net drag. Any design that buys at the
+  open and exits before the close donates the first and pays the second,
+  before a single rupee of brokerage.
+
+==============================================================================
+  3. SINGLE-FACTOR NEXT-DAY EDGE — score at close(D), trade D+1
+==============================================================================
+
+factor (top 3)          O->C bps  vs univ      t     C->C bps  vs univ      t
+------------------------------------------------------------------------------
+momentum                    -9.4     -3.2  -1.72         +8.9     +0.7   0.34
+near_high                   -9.0     -2.8  -1.75         +2.5     -5.8  -3.44
+volume_exp                  -7.2     -1.1  -0.60         +9.4     +1.1   0.62
+volatility                  -5.2     +1.0   0.63         +9.4     +1.1   0.70
+UNIVERSE (all eligible)      -6.2        —      —         +8.3        —      —
+
+  'vs univ' is the paired daily difference against equal-weighting the
+  whole eligible set — the only comparison that isolates the ranking.
+
+==============================================================================
+  4. COMPOSITE + CONTROLS — is the ranking real?
+==============================================================================
+
+selection               O->C bps  vs univ      t     C->C bps  vs univ      t
+------------------------------------------------------------------------------
+AS-PROPOSED top 3          -10.8     -4.7  -2.59         +4.2     -4.1  -2.17
+composite top 1            -13.6     -7.5  -2.30         +4.8     -3.5  -1.04
+composite top 3            -11.8     -5.6  -3.22         +4.5     -3.8  -2.09
+UNIVERSE                    -6.2        —      —         +8.3        —      —
+composite bottom 3          -7.2     -1.0  -0.65         +6.5     -1.7  -1.06
+
+G2 rank monotonicity (close->close): top1 +4.8 >= top3 +4.5 >= universe +8.3 >= bottom3 +6.5
+    -> FAIL
+
+G3 random-selection control (3 names/day, 20 seeds):
+    composite top 3 = +4.5 bps/day
+    random seeds    = +8.0 bps/day mean, range [+4.9, +11.2]
+    beaten 0/20  -> FAIL
+
+==============================================================================
+  5. HOLDING PERIOD — buy at close(D), hold k days
+==============================================================================
+
+selection                        d1           d3           d5          d10          d20          d40
+----------------------------------------------------------------------------------------------------
+AS-PROPOSED top 3          +4( 1.6)    +12( 0.3)    +27( 1.9)    +66( 3.1)   +132( 2.5)   +291( 3.5)
+composite top 1            +5( 1.2)    +15( 0.7)    +32( 2.7)    +79( 3.5)   +133( 2.2)   +327( 2.7)
+composite top 3            +5( 1.7)    +15( 1.5)    +28( 2.4)    +69( 2.7)   +143( 2.0)   +304( 3.0)
+UNIVERSE                   +8( 4.7)    +25( 4.8)    +40( 4.2)    +75( 3.8)   +141( 4.1)   +284( 3.9)
+composite bottom 3         +7( 2.9)    +23( 4.1)    +39( 3.7)    +79( 3.3)   +147( 3.4)   +328( 3.5)
+
+  Figures are gross bps; the bracketed t uses NON-OVERLAPPING windows,
+  which is the honest one for a k-day hold.
+
+  Cost to clear at Rs.5,000: 104 bps on one position, 247 bps split three ways.
+  Horizons where top-3 clears its own cost : [20, 40]
+  Horizons where top-3 beats the universe  : none   (edge > 0 AND t > 2)
+
+    hold    edge vs universe   t (non-overlap)
+       1                -3.8             -2.09
+       3                -9.4             -2.53
+       5               -12.0             -0.80
+      10                -6.7             -0.10
+      20                +2.6             -0.93
+      40               +19.5              0.47
+
+==============================================================================
+  6. COST HURDLE — what Rs.5,000 of capital has to beat
+==============================================================================
+
+capital split                 each      MIS   hybrid      CNC
+-------------------------------------------------------------
+1 position(s)           Rs.  5,000     36.3    103.5    103.0
+2 position(s)           Rs.  2,500     61.9    168.3    173.8
+3 position(s)           Rs.  1,667     81.5    247.1    244.6
+
+  All in bps of position value, round trip, 5 bps/leg slippage.
+  The MIS column uses Angel One's real 2026 schedule, calibrated
+  against a contract note; the legacy model in costs.py understates
+  it 1.8x.
+
+  The flat Rs.20 + GST DP charge is why splitting is expensive: it is
+  paid per scrip regardless of size, so three Rs.1,667 positions pay
+  it three times on a book that never exceeded Rs.5,000.
+
+==============================================================================
+  GATE VERDICT
+==============================================================================
+
+  G1  next-day O->C edge over universe   -5.6 bps, t = -3.22   FAIL
+  G2  rank monotonicity                  violated                FAIL
+  G3  beats >= 19 of 20 random seeds     0/20                      FAIL
+
+  The screener AS ORIGINALLY SPECIFIED (20-day ROC, no skip, six factors
+  at 25/20/20/15/10/10) is measured separately and is worse than the
+  corrected one on both horizons:
+      next-day open->close  -4.7 bps vs universe, t = -2.59
+      next-day close->close -4.1 bps vs universe, t = -2.17
+  Both are significantly negative. The 20-day lookback with no skip sits
+  inside the short-term reversal window that momentum_xs.py skips a month
+  to avoid, so the ranking is pointed at the wrong end of it.
+
+  G1 is the criterion for the SAME-DAY leg, and it is measured against a
+  universe whose own intraday drift is -6.2 bps/day while its
+  overnight drift is +14.6 bps/day. A design that buys at the
+  open and exits by 15:00 is on the wrong side of that split before it
+  pays a single rupee of brokerage.
+
+  Nothing clears the cost hurdle at any horizon.
+
+  VERDICT: REJECTED. No execution engine was built.

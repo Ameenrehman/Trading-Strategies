@@ -2,10 +2,11 @@
 
 Systematic NSE equity strategies tested against a realistic Indian cost model — and measured honestly enough to tell a real edge from a bookkeeping illusion.
 
-Two parts, in order:
+Three parts, in order:
 
 1. **Intraday** — 12 strategies, tested, **rejected**. A genuine edge was found and shown to be smaller than its own trading costs.
-2. **Delivery / CNC momentum** — the current work. Run on 15 years of real data: **+12.18%/yr over buy-and-hold after costs, all six pre-registered criteria passed.** Not yet traded, on paper or otherwise.
+2. **Delivery / CNC momentum** — the main result. Run on 15 years of real data: **+12.18%/yr over buy-and-hold after costs, all six pre-registered criteria passed.** Not yet traded, on paper or otherwise.
+3. **Hybrid intraday-to-delivery on ₹5,000** — **rejected at the screener**, before any execution engine was written. The proposed ranking is significantly *anti*-predictive at a one-day horizon.
 
 **Scope:** long-only NSE cash equity. No options, no derivatives, no small-caps.
 
@@ -202,23 +203,107 @@ It is still not a licence to deploy capital, for three specific reasons:
 
 ---
 
+# Part 3 — Hybrid intraday-to-delivery on ₹5,000 (rejected at the screener)
+
+A proposal: screen daily after the close, buy the top 1–3 names MIS at the open with pre-computed SL/TP, convert whatever is in profit at 15:00 into CNC, and manage the delivery leg to +5% / −3%. Capital ₹5,000. The proposal itself said the screener was "the most critical step — the screener quality determines everything."
+
+That is exactly right, and it is why no execution engine was written. **A screener built from daily bars can be scored on 15 years and 205 symbols without simulating a single intraday fill.** If the ranking carries no next-day information, no trade management can rescue it, and building the engine first is an expensive way to discover that. So the screener was gated first, against pre-registered criteria.
+
+**It failed all three.**
+
+| # | Criterion | Result | |
+|---|---|---|---|
+| G1 | Next-day open→close edge over the universe > 0, t > 2 | −6.2 bps, t = −2.55 | **FAIL** |
+| G2 | Rank monotone: top-1 ≥ top-3 ≥ universe ≥ bottom-3 | bottom-3 (+9.8) beats top-3 (+8.6) and the universe (+7.8) | **FAIL** |
+| G3 | Beats ≥ 19 of 20 random-selection seeds | 8/20 | **FAIL** |
+
+Development window only, 24-month holdout sealed. G2 is the mirror test that validated the delivery momentum work in Part 2 — here it fires backwards.
+
+Re-run on just the 50 symbols that have 5-minute data — the names the strategy could actually have traded — it fails harder: **G1 = −5.6 bps at t = −3.22, and G3 = 0 of 20 random seeds beaten.** Screening the full 205 while only 50 are tradeable would itself have been a selection bias, since only 15% of top-3 picks land in that 50; screening inside it removes the bias and the result gets worse, not better.
+
+### Why the same-day leg cannot work
+
+Decomposing the universe's own return answers it before any strategy is involved:
+
+| Segment | bps/day | Hit rate | t |
+|---|---:|---:|---:|
+| Overnight (prev close → open) | **+18.4** | 75.3% | 17.7 |
+| Intraday (open → close) | **−10.2** | 49.4% | −6.0 |
+| Full day (close → close) | +7.8 | 59.0% | 4.2 |
+
+Essentially all of the drift is delivered overnight and the continuous session is a net drag. **A design that buys at 09:15 and exits by 15:00 donates the first and pays the second**, before a single rupee of brokerage. That is the same binding constraint that killed Part 1, arriving from a different direction.
+
+### Two of the six factors could not rank anything
+
+The proposed score was six factors at 25/20/20/15/10/10. Two of them are arithmetically incapable of reordering a cross-section:
+
+- **"Relative strength vs Nifty"** (20%) is `roc20(stock) − roc20(index)`. The index term is one number per date, identical for every symbol, and subtracting a per-date constant is rank-preserving. It was **rank-identical to plain 20-day ROC on 500 of 500 dates tested.** It survives in the built version only as a *regime filter*, comparing the index to its own moving average — which does do something.
+- **"Above the 50-DMA"** (15%) was listed as both a hard filter and a weighted score. Once it is a filter, every surviving name scores identically.
+
+The momentum leg was the deeper problem: a **20-day ROC with no skip** sits inside the short-term reversal window that `momentum_xs.py` deliberately skips a month to avoid. Scored as specified, the screener is significantly *anti*-predictive — **−11.1 bps vs the universe on open→close (t = −4.18)** and **−6.2 bps on close→close (t = −2.23)** — and it underperforms equal-weighting the universe at every holding period from 1 to 20 days.
+
+Rebuilding it as a 60-day ROC skipping 5 days, with the two dead factors removed, improves it and is what G1–G3 above actually score. It still fails. Notably the corrected composite is **worse than its own best single factor** — momentum alone is +5.7 bps vs the universe at t = 2.03, the four-factor blend is +0.8 at t = 0.31 — which is what adding uninformative factors to a ranking does.
+
+### The cost model was understated, and a real contract note fixed it
+
+`brokerage_per_order()` charges `min(₹20, 0.03%)`. Angel One's actual 2026 intraday rate is the same `max(₹5, min(₹20, 0.1%))` schedule it uses for delivery. A real round trip supplied by the account holder:
+
+| | Turnover | Charged | Model (legacy) |
+|---|---:|---:|---:|
+| Buy | ₹4,852 | ₹6.08 | — |
+| Sell | ₹4,640 | ₹7.07 | — |
+| **Round trip** | | **₹13.15 (27.1 bps)** | **₹5.01 (10.3 bps)** |
+
+`intraday_leg_2026()` reproduces both legs **to the paisa**, and is asserted against them in `python backtest/costs.py`. Two details only matter at this size: STT and stamp duty are billed in whole rupees, and the ₹5 brokerage floor binds below ₹5,000 of turnover. The legacy functions are left untouched so Parts 1 and 2 still reproduce — the correction makes Part 1's rejection *wider*, not narrower.
+
+**On ₹5,000, the DP charge dominates everything.** It is a flat ₹20 + GST = ₹23.60 per scrip per sell, confirmed against the account holder's own charges:
+
+| Split | Each | MIS | Hybrid MIS→CNC | CNC | DP alone |
+|---|---:|---:|---:|---:|---:|
+| 1 position | ₹5,000 | 36.3 | **103.5** | 103.0 | 47.2 |
+| 2 positions | ₹2,500 | 61.9 | 168.3 | 173.8 | 94.4 |
+| 3 positions | ₹1,667 | 81.5 | **247.1** | 244.6 | 141.6 |
+
+So the proposal's "+5% target, −3% stop, 1:1.67, needs a 38% win rate" is a statement about *prices*, not money. After costs it is **+3.96% / −4.03%, R:R 0.98, breakeven win rate 50.5%** on one position — and **71.5%** split three ways. Concentration is not a preference here; the flat DP charge makes splitting ₹5,000 structurally unaffordable.
+
+Slippage is almost irrelevant at this size: moving it from 5 bps/leg to zero changes the hybrid round trip by 10 bps out of 104. **The cost is nearly all statutory and exactly known**, so "but slippage is only assumed" is not an available objection to this rejection.
+
+### What survived, and what it isn't
+
+One result passed. At a **40-day hold** the corrected screener beats the equal-weight universe by **+117 bps (t = 2.55, non-overlapping windows)**, and clears its own ₹5,000 round-trip cost at 20 and 40 days. Every shorter horizon is inside the noise:
+
+| Hold | 1d | 3d | 5d | 10d | 20d | 40d |
+|---|---:|---:|---:|---:|---:|---:|
+| Edge vs universe (bps) | +0.8 | −5.0 | −8.9 | −0.8 | +7.9 | **+116.8** |
+| t (non-overlapping) | 0.31 | −1.75 | −1.20 | −0.38 | 1.85 | **2.55** |
+
+That is **not a reprieve for this strategy.** It is a different one: a multi-week position with no intraday leg, no MIS entry and no 15:00 conversion — none of which the gate tested. It is also close to what Part 2 already trades and has already validated, on a longer lookback and 20 names rather than 3. Treating it as a new finding would require benchmarking it head-to-head against that, on its own pre-registered criteria.
+
+**Verdict: rejected at the screener.** No execution engine was built, because there is no point executing a selection that loses to picking at random.
+
+**What this establishes:** that the proposed ranking is anti-predictive at a one-day horizon, that two of its six factors could not have contributed, and that ₹5,000 of capital faces a 104 bps hybrid round trip which a +5% target cannot comfortably clear. **What it does not:** that trade management is irrelevant. SL/TP truncation and the conversion rule change the *distribution* of outcomes, and daily bars cannot see that. The claim here is narrower — that the selection those rules would act on does not beat random, which makes the question moot rather than answered.
+
+---
+
 ## Cost model
 
-`backtest/costs.py`. Both models are kept — conflating them is an easy way to build a strategy that looks profitable and isn't.
+`backtest/costs.py`. All three models are kept side by side — conflating them is an easy way to build a strategy that looks profitable and isn't.
 
-| Component | Delivery (CNC) | Intraday (MIS) |
-|---|---|---|
-| Brokerage | `max(₹5, min(₹20, 0.1%))` per order | `min(₹20, 0.03%)` per order |
-| **STT** | **0.1% BOTH legs** | 0.025% sell only |
-| Exchange txn | 0.00297% both | 0.00297% both |
-| SEBI | 0.0001% both | 0.0001% both |
-| Stamp duty | 0.015% buy only | 0.003% buy only |
-| GST | 18% on (brokerage + exchange + SEBI + DP) | 18% on (brokerage + exchange + SEBI) |
-| **DP charges** | **₹20 per scrip on sell** | none |
+| Component | Delivery (CNC) | Intraday (MIS) | Hybrid (MIS buy → CNC sell) |
+|---|---|---|---|
+| Brokerage | `max(₹5, min(₹20, 0.1%))` per order | `min(₹20, 0.03%)` per order — **stale, see below** | `max(₹5, min(₹20, 0.1%))` both legs |
+| **STT** | **0.1% BOTH legs** | 0.025% sell only | 0.1% sell, and buy if conversion reclassifies it |
+| Exchange txn | 0.00297% both | 0.00297% both | 0.00297% both |
+| SEBI | 0.0001% both | 0.0001% both | 0.0001% both |
+| Stamp duty | 0.015% buy only | 0.003% buy only | 0.015% buy only |
+| GST | 18% on (brokerage + exchange + SEBI + DP) | 18% on (brokerage + exchange + SEBI) | 18% on (brokerage + exchange + SEBI + DP) |
+| **DP charges** | **₹20 per scrip on sell** | none | **₹20 per scrip on sell** |
 
 Round-trip on ₹1,00,000 at 5 bps/leg slippage: **intraday 18.3 bps, delivery 39.3 bps.** STT alone is 20 bps of the delivery figure — 50.9% — and being purely proportional it never amortises with size.
 
-**The hurdle is size-dependent.** Below ~₹5L of capital, fixed ₹20 brokerage and ₹20 DP per scrip push annual drag above 2%.
+**The hurdle is size-dependent.** Below ~₹5L of capital, fixed ₹20 brokerage and ₹20 DP per scrip push annual drag above 2%. At ₹5,000 it stops being a drag and becomes the strategy: a hybrid round trip costs **104 bps**, of which **47 bps is the DP charge alone**.
+
+**The intraday brokerage rate above is out of date.** Angel One now charges the same `max(₹5, min(₹20, 0.1%))` for MIS as for CNC, which a real contract note (`₹4,852` buy → `₹6.08`, `₹4,640` sell → `₹7.07`) pins exactly. `intraday_leg_2026()` reproduces it to the paisa and is asserted against it; the legacy `round_trip_cost()` is deliberately left alone so Parts 1 and 2 still reproduce. Part 1's rejection was measured against the *understated* figure, so correcting it widens the rejection rather than threatening it.
 
 ---
 
@@ -227,11 +312,14 @@ Round-trip on ₹1,00,000 at 5 bps/leg slippage: **intraday 18.3 bps, delivery 3
 ```
 strategies/
   momentum_xs.py         # cross-sectional momentum + trend filter (current)
+  hybrid_momentum.py     # hybrid intraday-to-delivery screener (rejected)
   session.py             # session structure, day-aware ATR, risk sizing (intraday)
   orb_strategy.py        # opening range breakout (rejected)
   gap_rvol_strategy.py   # gap + RVOL momentum (rejected)
 backtest/
-  costs.py               # intraday AND delivery cost models
+  costs.py               # intraday, delivery AND hybrid cost models
+  hybrid_momentum/
+    test_screener_gate.py    # the Part 3 gate — screener quality before any engine
   walk_forward.py        # criterion 5 + the variant-selection overfitting test
   test_permutation.py    # Monte Carlo permutation + Bonferroni
   portfolio.py           # rebalancing portfolio backtester
@@ -292,6 +380,18 @@ python backtest/test_momentum_controls.py   # the controls
 python backtest/walk_forward.py             # criterion 5 + the anti-overfitting test
 python backtest/test_permutation.py         # permutation test + Bonferroni
 ```
+
+Part 3 reproduces from the same committed daily data:
+
+```bash
+python backtest/costs.py                                # includes the contract-note check
+python backtest/hybrid_momentum/test_screener_gate.py   # the gate, and why it failed
+python backtest/hybrid_momentum/test_screener_gate.py --universe intraday50
+```
+
+The gate seals the 24-month holdout by default; `--full-sample` includes it and
+says so in the report header. It writes `gate_report.txt` plus the underlying
+CSVs to `backtest/results/hybrid_momentum/`.
 
 ### Phase 2: Forward Paper Trading & Slippage Measurement
 
@@ -367,6 +467,8 @@ Things this repo tries to do properly, mostly because earlier versions got them 
 ## Caveats
 
 Research code, not trading advice. Nothing here has been paper-traded or traded live, and no strategy has passed validation. The momentum work carries **survivorship bias** that free data cannot fully remove — today's index membership applied to historical data excludes companies that failed, which inflates backtested momentum returns. The year-by-year split argues the edge is not merely that bias, but does not eliminate it. Returns are price-only (no dividends), which understates strategy and benchmark roughly equally.
+
+The Part 3 gate is a screening result, not an execution result. It establishes that the proposed ranking loses to random selection at a one-day horizon; it does **not** establish that stop-loss placement and the MIS→CNC conversion are worthless in general, because daily bars cannot see intraday path dependence. The claim is that the selection those rules would act on does not beat random, which makes the question moot rather than answered.
 
 Momentum has underperformed the benchmark for roughly the last 18 months (2025: −8.9% relative). Sustained relative drawdowns are momentum's documented failure mode, not evidence the backtest is broken — but they are also exactly what a live deployment would have to sit through.
 
