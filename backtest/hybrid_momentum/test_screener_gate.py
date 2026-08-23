@@ -62,7 +62,6 @@ from backtest.costs import (
     hybrid_cost_bps, delivery_cost_bps, intraday_cost_bps,
     intraday_cost_bps_2026,
 )
-from backtest.portfolio import HOLDOUT_MONTHS
 from strategies.hybrid_momentum import (
     HybridConfig, load_daily_ohlc, indicators, eligible, composite_score,
     factor_ranks, rank_picks, make_random_picks, equal_weight_index,
@@ -75,6 +74,13 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 HOLDS = [1, 3, 5, 10, 20, 40]
 N_RANDOM_SEEDS = 20
+
+# Trailing window held back from development. Mirrors backtest/portfolio.py's
+# HOLDOUT_MONTHS on the main branch, where the delivery-momentum work lives —
+# kept identical so the two are comparable, inlined here because this branch
+# carries only the hybrid strategy and importing a rebalancing backtester for
+# one integer would drag Part 2's whole dependency chain back in.
+HOLDOUT_MONTHS = 24
 
 
 # ---------------------------------------------------------------------------

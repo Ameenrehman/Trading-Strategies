@@ -7,14 +7,12 @@ on:
       strategy:
         description: 'Strategy script to run'
         required: true
-        default: 'backtest/ema_pullback/ema_pullback_analysis.py'
+        default: 'backtest/hybrid_momentum/test_screener_gate.py'
         type: choice
         options:
-          - backtest/ema_pullback/ema_pullback_analysis.py
-          - backtest/ema_pullback/test_ema_pullback.py
-          - backtest/gap_rvol_orb/test_gap_rvol.py
-          - backtest/momentum_delivery/test_momentum.py
           - backtest/hybrid_momentum/test_screener_gate.py
+          - backtest/costs.py
+          - data/corporate_actions.py
       commit_results:
         description: 'Automatically commit and push results back to this branch'
         required: true
@@ -23,7 +21,7 @@ on:
 
 jobs:
   run-backtest-matrix:
-    name: Run Intraday Backtest Suite
+    name: Run Hybrid Momentum Gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -71,11 +69,11 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas matplotlib scipy
+          pip install numpy pandas
 
       - name: Execute Strategy Backtest & Monte Carlo
         run: |
-          python ${{ inputs.strategy || 'backtest/ema_pullback_analysis.py' }}
+          python ${{ inputs.strategy || 'backtest/hybrid_momentum/test_screener_gate.py' }}
 
       - name: Archive Backtest Results & Charts
         uses: actions/upload-artifact@v4
@@ -83,7 +81,6 @@ jobs:
         with:
           name: backtest-artifacts-${{ github.sha }}
           path: |
-            backtest/results/ema_pullback/
             backtest/results/hybrid_momentum/
           retention-days: 30
 

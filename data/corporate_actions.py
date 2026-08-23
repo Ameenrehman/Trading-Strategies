@@ -119,9 +119,14 @@ if __name__ == "__main__":
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from backtest.portfolio import load_daily
+    # backtest/portfolio.py's load_daily() lives on the main branch with the
+    # delivery-momentum work. This branch carries only the hybrid strategy, so
+    # the scan uses its OHLCV loader instead — same CSVs, same repair, and it
+    # additionally drops the handful of dates whose cross-section collapses.
+    from strategies.hybrid_momentum import load_daily_ohlc
 
-    closes, volumes = load_daily(repair_corporate_actions=False)
+    panel = load_daily_ohlc(repair_corporate_actions=False)
+    closes = panel["close"]
     events = detect_price_steps(closes)
     print("=" * 78)
     print("  UNADJUSTED CORPORATE ACTION SCAN")

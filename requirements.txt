@@ -14,10 +14,10 @@
 # it and will not run anywhere else.
 
 # --- backtesting core ---
-backtesting==0.6.6
+# backtesting.py and bokeh were dropped with the intraday engines that used
+# them; this branch's gate is plain pandas. They are still pinned on main.
 pandas==3.0.5
 numpy==2.5.2
-bokeh==3.10.0                 # backtesting.py uses this for HTML reports
 pandas_market_calendars==5.4.0
 
 # --- broker API / data fetching ---

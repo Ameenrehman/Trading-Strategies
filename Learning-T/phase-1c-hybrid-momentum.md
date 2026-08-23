@@ -32,6 +32,23 @@ multi-week position with no intraday leg and no conversion, and it sits close to
 what `momentum_delivery/` already trades and has validated. It would need its own
 pre-registered head-to-head before being treated as a new finding.
 
+### Branch scoping
+
+`intra-multi` was subsequently reduced to this strategy alone. The intraday
+gap/ORB family, the EMA-pullback family, the delivery-momentum work and the
+live/paper-trading pipeline were removed from this branch; all of them remain on
+`main` and `intra-faiz`, which was verified before deleting. Consequences:
+
+- `backtest/portfolio.py` went with the momentum work, so `HOLDOUT_MONTHS` is
+  inlined in the gate rather than imported. The value (24) is unchanged, so the
+  two branches stay comparable.
+- `data/corporate_actions.py`'s `__main__` block imported `portfolio.load_daily`
+  and would have crashed. It now uses `hybrid_momentum.load_daily_ohlc`.
+- `backtesting` and `bokeh` were dropped from `requirements.txt`; nothing left
+  here imports them.
+- The CI workflow's strategy list pointed at four deleted scripts and now offers
+  the three that survive.
+
 ### Corrections to the numbers in the plan below
 
 The plan's Context section was written from an exploratory pass that computed
