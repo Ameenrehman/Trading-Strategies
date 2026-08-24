@@ -1,0 +1,313 @@
+
+==============================================================================
+NEXT-DAY DIRECTION - FEASIBILITY
+==============================================================================
+Window: development only. Holdout sealed from 2024-08-21 to 2026-08-21.
+Universe: 205 symbols, 3213 dates (2011-08-24 to 2024-08-21)
+Eligible name-days: 427,455   median names/day: 145
+
+==============================================================================
+F1. THE NULL - what direction does for free
+==============================================================================
+Every win rate below has to be read against these. Buying a random liquid
+NSE name is not a coin flip: the universe drifts up, so a coin flip looks
+like a strategy.
+
+leg                                              bps/day    hit %        t
+close(D) -> close(D+1)  [CLOSE entry, holds overnight]       9.1     50.5     4.55
+close(D) -> open(D+1)   [the overnight move alone]      17.8     63.3    16.63
+open(D+1) -> close(D+1)  [OPEN entry, session only]      -8.5     45.7    -4.92
+
+Per-year stability of the CLOSE-entry base rate (hit % of a random pick):
+  2011:nan  2012:52  2013:49  2014:52  2015:50  2016:50  2017:51  2018:49  2019:49  2020:52  2021:51  2022:50  2023:52  2024:52
+
+==============================================================================
+F2. SINGLE FEATURES - does anything rank tomorrow?
+==============================================================================
+IC is the daily cross-sectional rank correlation between the feature and
+the next-day return. In equity work |IC| ~ 0.02-0.03 is a genuine signal;
+it is also a very small one. IR = mean(IC)/sd(IC), annualised by sqrt(252).
+
+Measured on the CLOSE-entry leg (close -> close), the friendlier of the two.
+
+feature              IC     IC t      IR  D10-D1 bps       t  D10 hit%   D1 hit%
+ret1            -0.0251    -9.70   -2.83         2.7    1.15      48.6      51.8
+ret5            -0.0283   -10.31   -3.01        -5.8   -2.44      48.5      51.9
+ret20           -0.0188    -6.66   -1.94        -5.3   -2.17      48.7      51.5
+ret60skip5       0.0009     0.32    0.09         2.7    1.09      50.1      50.1
+dist_ma20       -0.0266    -9.16   -2.67        -8.0   -3.12      48.2      51.9
+dist_ma50       -0.0201    -6.72   -1.96        -4.5   -1.72      48.6      51.5
+dist_ma200      -0.0031    -1.01   -0.29         1.0    0.36      49.9      50.7
+rsi14           -0.0236    -8.36   -2.44        -6.2   -2.69      48.3      51.8
+updays5         -0.0222   -10.31   -3.01       -11.1   -2.92      48.5      52.5
+high_prox       -0.0157    -5.46   -1.59        -8.3   -3.53      48.5      51.6
+low_prox        -0.0245    -9.38   -2.73        -2.8   -1.29      48.7      52.0
+clv             -0.0238   -10.52   -3.07        -5.4   -3.11      48.0      51.8
+vol_ratio       -0.0052    -2.65   -0.77         1.4    0.74      49.9      50.4
+turnover        -0.0043    -1.89   -0.55        -6.3   -2.58      50.3      49.6
+atr_pct         -0.0103    -3.09   -0.90         7.2    2.51      50.3      50.7
+tr_ratio        -0.0066    -3.13   -0.91        -3.0   -1.50      49.6      50.1
+gap_today        0.0033     1.55    0.45         5.3    2.57      50.2      50.0
+
+Strongest by |IC t|: clv (IC -0.0238, t -10.52)
+Decile monotonicity for it (a real signal steps; a fluke zig-zags):
+  decile       1       2       3       4       5       6       7       8       9      10
+  bps        9.2    10.4     9.9    12.5    11.4    10.6     9.7     9.2     5.1     3.1
+  hit %     51.8    51.7    51.4    51.6    51.2    50.5    50.5    49.7    48.9    48.0
+
+==============================================================================
+F2b. IS THE REVERSAL REAL, OR IS IT BID-ASK BOUNCE?
+==============================================================================
+Every informative feature above has a NEGATIVE IC: yesterday's winners
+lose tomorrow. Before believing that, it has to survive the artifact that
+manufactures it. A closing print lands at either the bid or the ask, so
+close(D) carries a random error. That same error raises ret1 (which
+divides BY close(D-1) and multiplies by close(D)) and lowers the next-day
+return (which divides by close(D)) - producing reversal out of pure noise.
+
+The control: score the same features against targets that share no price
+with them. 'oc' starts at the next open; 'cc(+1)' starts a full day later.
+If reversal is an artifact it collapses; if it is real it persists.
+
+feature          IC vs cc   IC vs oc  IC vs cc(+1)     t cc     t oc   t cc(+1)
+ret1              -0.0251    -0.0305       -0.0201    -9.70   -12.15      -8.42
+ret5              -0.0283    -0.0223       -0.0235   -10.31    -8.43      -8.68
+ret20             -0.0188    -0.0161       -0.0140    -6.66    -5.88      -5.01
+ret60skip5         0.0009    -0.0052        0.0024     0.32    -1.87       0.85
+dist_ma20         -0.0266    -0.0208       -0.0202    -9.16    -7.41      -7.12
+dist_ma50         -0.0201    -0.0186       -0.0141    -6.72    -6.44      -4.77
+dist_ma200        -0.0031    -0.0099        0.0005    -1.01    -3.31       0.15
+rsi14             -0.0236    -0.0175       -0.0165    -8.36    -6.43      -5.95
+updays5           -0.0222    -0.0150       -0.0160   -10.31    -7.10      -7.55
+high_prox         -0.0157     0.0024       -0.0118    -5.46     0.88      -4.22
+low_prox          -0.0245    -0.0261       -0.0185    -9.38   -10.09      -7.16
+clv               -0.0238    -0.0048       -0.0161   -10.52    -2.19      -7.59
+vol_ratio         -0.0052    -0.0232       -0.0075    -2.65   -11.70      -3.92
+turnover          -0.0043    -0.0077       -0.0041    -1.89    -3.46      -1.76
+atr_pct           -0.0103    -0.0364       -0.0100    -3.09   -11.34      -3.02
+tr_ratio          -0.0066    -0.0243       -0.0100    -3.13   -11.38      -5.01
+gap_today          0.0033    -0.0276       -0.0042     1.55   -13.24      -2.01
+
+==============================================================================
+F3. COMBINED, OUT OF SAMPLE - walk-forward
+==============================================================================
+Features are cross-sectionally rank-transformed, then fitted by OLS to the
+cross-sectionally demeaned next-day return on an expanding window, refit
+every year and applied only to the following year. Nothing here is fitted
+to the data it is scored on.
+
+target      OOS IC     IC t     OOS R2   top5 bps       t    hit%   univ bps  univ hit%
+cc          0.0248     9.40   -0.00136       20.2    6.20    51.6        8.6       50.5
+oc          0.0495    19.61   -0.00133        1.6    0.64    48.1      -10.2       45.2
+co          0.1624    61.42   -0.03124       39.8   23.12    71.5       19.0       64.5
+
+Paired edge over the equal-weight universe on the SAME days (the only
+comparison that means anything for a long-only book):
+  cc: +11.7 bps/day, t = 5.23, hit 51.6% vs universe 50.5%
+  oc: +11.8 bps/day, t = 6.65, hit 48.1% vs universe 45.2%
+  co: +20.9 bps/day, t = 20.05, hit 71.5% vs universe 64.5%
+
+==============================================================================
+F4. MAGNITUDE - 'how much will it move?'
+==============================================================================
+Direction and size are not equally hard. Testing them separately:
+
+  today's ATR%   -> tomorrow's |return|         r =  0.305   R2 =  0.093
+  today's ATR%   -> tomorrow's high-low range   r =  0.491   R2 =  0.241
+  today's TR/ATR -> tomorrow's |return|         r =  0.129   R2 =  0.017
+  model score   -> tomorrow SIGNED return       r =  0.018   R2 =  0.000
+  model sign agrees with realised sign            50.6 %
+
+Read the two lines above together. Size is forecastable and direction is
+not - which is what makes ATR-derived SL/TP legitimate even when the
+directional call is weak. It also means any 'it will go up 4.2%' number is
+a volatility estimate wearing a direction it has not earned.
+
+==============================================================================
+F5. WIN RATE - what is actually reachable
+==============================================================================
+Win rate is not a property of a signal. It is a property of where you put
+the barriers: a tight target with a wide stop wins often and loses big.
+The grid below moves ONLY the barriers - same picks, same days - so the
+trade-off is visible rather than asserted.
+
+Entry: next day's OPEN (the workflow being asked for). Stops are in ATR
+multiples, so they adapt to each name's volatility. Gaps through a barrier
+fill at the open; a bar touching both is scored as the stop.
+
+TP/SL (ATR)     days who        trades   win %      bps       t   avg win  avg loss  payoff
+1.0/1.0            5 model      11,898    51.7     17.4    1.97     352.6    -341.5    1.03
+1.0/1.0            5 random     14,802    50.4      6.8    2.02     294.3    -285.3    1.03
+1.5/1.0            5 model      11,892    47.5     27.1    2.44     424.9    -332.8    1.28
+1.5/1.0            5 random     14,800    45.5     10.5    2.07     356.8    -279.1    1.28
+2.0/1.0            5 model      11,892    46.4     31.7    2.64     449.7    -330.5    1.36
+2.0/1.0            5 random     14,798    44.1     12.6    2.18     380.8    -277.3    1.37
+1.0/1.5            5 model      11,898    57.0     29.0    3.19     347.1    -392.2    0.89
+1.0/1.5            5 random     14,800    56.3     13.2    2.71     287.6    -339.8    0.85
+1.0/2.0            5 model      11,898    58.5     35.2    3.71     345.3    -401.2    0.86
+1.0/2.0            5 random     14,800    57.9     16.0    2.76     286.2    -355.3    0.81
+0.5/2.0            5 model      11,903    71.0     12.3    1.97     200.9    -450.6    0.45
+0.5/2.0            5 random     14,809    72.1      6.1    2.76     163.0    -399.6    0.41
+0.5/3.0           10 model      11,898    80.2     35.2    2.08     204.9    -653.5    0.31
+0.5/3.0           10 random     14,802    81.2     23.6    2.11     165.7    -591.1    0.28
+
+Same comparison with a CLOSE entry, so the overnight move is inside the trade:
+TP/SL (ATR)     days who        trades   win %      bps       t  payoff
+1.0/1.0            5 model      11,898    54.8     41.1    4.54    1.04
+1.0/1.0            5 random     14,801    53.2     24.4    4.03    1.04
+1.0/2.0            5 model      11,898    61.2     59.4    5.94    0.88
+1.0/2.0            5 random     14,800    60.3     34.1    4.63    0.82
+0.5/2.0            5 model      11,905    75.1     38.4    5.12    0.44
+0.5/2.0            5 random     14,810    75.1     25.3    6.13    0.41
+
+==============================================================================
+F6. THE HIGH-WIN-RATE CANDIDATE - buy the close, sell the open
+==============================================================================
+F1 found the only leg with a naturally high hit rate: the overnight move
+wins 63% of the time on a random liquid name, with no model at all. That
+is the closest thing in this data to 'a big win percent', so it deserves
+its own test rather than being buried in an average.
+
+Question: does ranking add anything on top of the 63%, and does the win
+rate hold as the list gets shorter?
+
+picks         hit %       bps        t   vs universe   edge t
+top 1          72.3      45.5    17.06         +26.5    10.89
+top 3          72.2      42.1    22.14         +23.1    16.62
+top 5          71.5      39.8    23.12         +20.9    20.05
+top 10         70.8      36.8    23.01         +17.8    24.53
+top 20         70.0      33.1    22.07         +14.2    28.24
+universe       63.3      17.8
+
+------------------------------------------------------------------------------
+Now falsify it. A 71% win rate at t = 20 is not a discovery, it is a
+warning: nothing in liquid equities predicts direction that well. The
+features carrying it are gap_today (IC +0.098), atr_pct (+0.096) and
+vol_ratio (+0.062) - a volatility-and-spread portrait, not a forecast.
+
+If the overnight gain is real it is a permanent repricing and survives the
+next session. If it is the bid-ask spread - the closing auction printing
+near the bid, the opening trade near the ask - it reverses immediately and
+is unreachable, because crossing that spread is exactly what buying costs.
+
+leg                                    top5 bps       t   universe      edge   edge t
+overnight close(D)->open(D+1)              39.8   23.12       19.0     +20.9    20.05
+session   open(D+1)->close(D+1)           -27.2   -8.27      -10.2     -17.0    -7.01
+full day  close(D)->close(D+1)             12.1    3.41        8.6      +3.6     1.39
+2 days    close(D)->close(D+2)             20.5    2.70       17.1      +3.4     0.39
+5 days    close(D)->close(D+5)             59.3    4.47       42.7     +16.5     2.88
+
+The same picks hand back 83% of the overnight edge during the next session.
+What is left over a full day is +3.6 bps at t = 1.39.
+
+The mechanism, shown directly - sort the universe by volatility and watch
+the two legs move in opposite directions in lockstep:
+
+    ATR% quintile     overnight bps   session bps   full-day bps
+    Q1                         12.2          -5.0            7.0
+    Q2                         15.4          -7.8            7.4
+    Q3                         17.2          -8.3            8.7
+    Q4                         19.7          -9.6            9.9
+    Q5                         24.5         -11.9           12.2
+
+The overnight column rises with volatility and the session column falls by
+almost the same amount. That is the spread being paid, not an edge being
+earned - wider-spread names show a bigger fake gap and a bigger fake fade.
+Confirmed on real traded prints: on the 50 symbols with 5-minute data, the
+overnight is +5.5 bps measured close-to-open on daily bars, but only
++2.7 bps and 52.2% from the 15:25 print to the 09:20 print - the two
+prices you could actually transact at.
+
+==============================================================================
+F7. STABILITY - does the edge survive year by year?
+==============================================================================
+An edge that lives in two good years is a backtest, not a strategy. Each
+year below is genuinely out of sample: the model that produced it was fit
+only on data before that year.
+
+year       cc edge bps   cc hit%   co edge bps   co hit%
+2015             -1.4     48.1         13.9     69.7
+2016             11.4     52.1          5.3     68.2
+2017              9.4     53.8         18.4     73.0
+2018             16.8     50.8          9.9     66.5
+2019             28.5     53.1         19.7     70.1
+2020             17.3     54.5         29.5     72.6
+2021              3.6     49.8         31.9     76.8
+2022             17.7     49.2         26.6     68.7
+2023              6.9     52.0         25.5     73.7
+2024              3.7     53.0         31.3     77.6
+
+cc edge positive in 9 of 10 out-of-sample years.
+co edge positive in 10 of 10 out-of-sample years.
+
+==============================================================================
+F8. HOLDING PERIOD - is one day the right horizon?
+==============================================================================
+The 1-day edge is real but small, and a 1-day trade pays a full round trip
+to collect it. This scan holds the SAME out-of-sample picks longer, so any
+improvement comes from the horizon rather than from a new signal.
+
+t is computed on NON-OVERLAPPING windows (every k-th date), which is the
+honest denominator for a k-day hold - overlapping windows reuse the same
+market days and inflate t by roughly sqrt(k).
+
+hold       top5 bps   universe   edge bps  t (overlap)  t (non-ov)   bps/day
+1              20.2        8.6      +11.7         5.23        5.23      11.7
+2              39.7       17.1      +22.6         7.36        6.28      11.3
+3              56.3       25.6      +30.7         8.57        4.77      10.2
+5              87.8       42.7      +45.0         9.73        5.58       9.0
+10            159.6       85.1      +74.5        11.49        3.62       7.5
+20            301.9      169.3     +132.7        13.84        2.78       6.6
+40            573.8      338.4     +235.5        16.00        3.29       5.9
+
+Strongest by non-overlapping t: 2-day hold, +22.6 bps (t = 6.28).
+Read the last column, not the fourth. Edge per DAY is what a round trip
+has to be amortised over, and it is what decides whether a horizon pays.
+
+==============================================================================
+VERDICT
+==============================================================================
+Four questions were asked. They get four different answers, and collapsing
+them into one number is how a strategy gets built on the wrong one.
+
+1. CAN NEXT-DAY DIRECTION BE PREDICTED?  Weakly, yes - and it is real.
+   Out of sample, IC +0.0248 (t 9.40); the top 5 names beat the
+   equal-weight universe by +11.7 bps/day (t 5.23), hit 51.6% against
+   a 50.5% base rate. It survives the bid-ask-bounce control and is
+   positive in 9 of 10 out-of-sample years. It is also about one point of
+   hit rate. That is what a genuine daily-bar equity signal looks like.
+
+2. IS IT A TREND SIGNAL?  No - it is the exact opposite.
+   Every informative feature has a NEGATIVE IC. Yesterday's strongest names
+   underperform tomorrow; distance above the 20-DMA, RSI, consecutive up
+   days and closing near the 20-day high all predict WEAKNESS. A screener
+   that buys strength is on the wrong side of the only effect present.
+
+3. CAN IT SAY HOW FAR A STOCK WILL MOVE?  Size yes, direction no.
+   ATR predicts tomorrow's range with r = 0.49; the model predicts tomorrow's
+   SIGNED return with r = 0.018 and agrees with its sign 50.6% of the time.
+   So ATR-derived SL/TP levels are well founded, and any '+4.2% expected'
+   number would be a volatility estimate with a direction stapled to it.
+
+4. CAN THE WIN RATE BE BIG?  Yes, trivially, and it will mean nothing.
+   The barrier grid moves win rate from 46% to 80% without changing a single
+   pick - purely by widening the stop against the target. Random selection
+   reaches the SAME win rates. Win rate measures barrier geometry; only
+   expectancy measures skill.
+
+REJECTED - the 71% overnight strategy. Ranking predicts the overnight move
+   with IC 0.16 and a 71.5% hit rate, then hands most of it back the next
+   session, leaving +3.6 bps at t = 1.39 over a full day. It is the
+   bid-ask spread being measured, not captured. See F6.
+
+NOTE ON TIMING. Buying at the next OPEN - the literal 'list for tomorrow'
+workflow - returns +1.6 bps/day absolute (universe -10.2). The drift in
+this market is overnight; a list acted on at the open has already missed
+it. Deciding and buying into the same close is a different strategy with
+a different answer, and both are reported above rather than averaged.
+
+Costs were excluded by instruction, so every figure here is an upper bound.
+For scale only: the measured round trip at small size is 27-104 bps, against
+a 1-day edge of ~12 bps. The horizon, not the signal, is what has to change.
+
+Artifacts: C:\Users\ameenur.r.OMAEMIRATES\Downloads\Learning-T\backtest\results\nextday

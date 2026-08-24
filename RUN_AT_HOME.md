@@ -13,16 +13,13 @@ This document is what you run when the data needs to be **brought up to date** �
 No network, no `.env`, no fetch. This is the whole result:
 
 ```bash
-python backtest/test_portfolio_sanity.py       # 16/16, or nothing below means anything
+python backtest/nextday/feasibility.py         # the study: can next-day direction be predicted
+python backtest/nextday/feasibility.py --universe intraday50
+python backtest/costs.py                       # cost tables + the contract-note check
 python data/corporate_actions.py               # what gets repaired in the price data, and why
-python backtest/test_momentum.py               # the main result + year-by-year
-python backtest/test_momentum_controls.py      # random and bottom-decile controls
-python backtest/walk_forward.py                # criterion 5 + the anti-overfitting test
-python backtest/test_permutation.py            # permutation test + Bonferroni
-python live/generate_orders.py --force --dry-run --rank-buffer 20   # today's buy list
 ```
 
-`--dry-run` prints the orders without recording an intended portfolio. Leave it off only when you actually intend to place them.
+The scripts listed in earlier versions of this file (`test_momentum.py`, `walk_forward.py`, `live/generate_orders.py` and the rest) belong to the delivery-momentum work and live on `main`. This branch carries the next-day feasibility study only.
 
 ## Refreshing the data (personal machine)
 
@@ -104,6 +101,8 @@ In priority order:
 
 ## Choosing a schedule
 
+> Delivery-momentum work on `main`, kept here for the data-refresh cadence it implies. `live/generate_orders.py` does not exist on this branch.
+
 Running the script daily is free. **Trading** daily is not:
 
 | Schedule | Turnover/yr | Cost/yr | CAGR |
@@ -127,6 +126,8 @@ python live/generate_orders.py --rebalance D --rank-buffer 20 --dry-run
 
 The trailing 24 months were supposed to stay sealed until exactly one final test. **They did not.** The first real-data run had no holdout handling at all and spanned 2011–2026, so that window was observed in the headline, in the recent-5-year row and in the year-by-year table.
 
-Nothing was *tuned* on it, which makes this weak contamination rather than fatal — but a holdout you have looked at is no longer a holdout. `split_holdout()` in `backtest/portfolio.py` now enforces the boundary in code, and both `walk_forward.py` and `test_permutation.py` respect it.
+Nothing was *tuned* on it, which makes this weak contamination rather than fatal — but a holdout you have looked at is no longer a holdout. That exposure was to the momentum work's headline numbers, not to anything in this branch's study, whose features and model were never fitted or selected against that window.
+
+`backtest/nextday/feasibility.py` seals the trailing 24 months by default and prints the boundary in its report header; `--full-sample` is the only way to include them, and it labels the output when you do.
 
 **The honest remaining out-of-sample test is forward time — paper trading — not a re-labelled slice of history.**

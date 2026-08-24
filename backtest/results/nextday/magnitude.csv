@@ -1,0 +1,5 @@
+pair,r,r2
+today's ATR%   -> tomorrow's |return|,0.30514934142637073,0.09311612057294778
+today's ATR%   -> tomorrow's high-low range,0.4910375491453341,0.2411178746706564
+today's TR/ATR -> tomorrow's |return|,0.1288721090073615,0.01660802048000527
+model -> signed return,0.01841473295427841,0.0003391023897773872

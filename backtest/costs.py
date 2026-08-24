@@ -344,8 +344,8 @@ def intraday_cost_bps_2026(position_value: float,
 
 
 # ---------------------------------------------------------------------------
-# Hybrid (MIS buy -> CNC sell) cost model — for the intraday-to-delivery
-# strategy in strategies/hybrid_momentum.py
+# Hybrid (MIS buy -> CNC sell) cost model — for any intraday-entry position
+# that is converted to delivery rather than squared off
 # ---------------------------------------------------------------------------
 #
 # A position entered as MIS and converted to CNC before the cutoff is priced by
@@ -533,7 +533,7 @@ if __name__ == "__main__":
     print("=" * 68)
     print("  The tables above start at Rs.10,000 and hide what happens below it.")
     print("  Rs.5,000 split across 1-3 names is the regime that actually matters")
-    print("  for strategies/hybrid_momentum.py.\n")
+    print("  at this account size, and the flat DP charge dominates it.\n")
     SMALL = [1_667, 2_500, 5_000, 10_000, 25_000, 50_000]
     print(f"{'position':>10} | {'MIS old':>8} | {'MIS real':>9} | {'HYB opt':>8} "
           f"| {'HYB cons':>9} | {'CNC':>7} | {'DP+GST':>7}")

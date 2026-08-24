@@ -94,8 +94,8 @@ def truncate_before_steps(closes: pd.DataFrame, volumes: pd.DataFrame = None,
     volumes = volumes.copy() if volumes is not None else None
     for sym, hits in events.items():
         last_step = max(dt for dt, _, _ in hits)
-        # NaN, not zero: momentum_xs treats NaN as "not tradable yet", which is
-        # precisely the semantics we want for a pre-restructuring price series.
+        # NaN, not zero: every consumer of the panel reads NaN as "not tradable
+        # yet", which is exactly the semantics of a pre-restructuring series.
         closes.loc[closes.index <= last_step, sym] = float("nan")
         if volumes is not None:
             volumes.loc[volumes.index <= last_step, sym] = 0.0
@@ -119,11 +119,9 @@ if __name__ == "__main__":
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    # backtest/portfolio.py's load_daily() lives on the main branch with the
-    # delivery-momentum work. This branch carries only the hybrid strategy, so
-    # the scan uses its OHLCV loader instead — same CSVs, same repair, and it
-    # additionally drops the handful of dates whose cross-section collapses.
-    from strategies.hybrid_momentum import load_daily_ohlc
+    # The scan runs on the same panel every study here uses, so what it reports
+    # is exactly what those studies had repaired for them.
+    from strategies.panel import load_daily_ohlc
 
     panel = load_daily_ohlc(repair_corporate_actions=False)
     closes = panel["close"]

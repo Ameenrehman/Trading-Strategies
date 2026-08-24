@@ -1,0 +1,4 @@
+leg,bps,hit_pct,t
+"close(D) -> close(D+1)  [CLOSE entry, holds overnight]",8.588042683649897,51.020349710649135,4.515818465243594
+close(D) -> open(D+1)   [the overnight move alone],14.683056330770977,62.090717505453775,13.74486916070054
+"open(D+1) -> close(D+1)  [OPEN entry, session only]",-5.97354155345765,46.48677282111804,-3.7314366732656454

@@ -7,10 +7,10 @@ on:
       strategy:
         description: 'Strategy script to run'
         required: true
-        default: 'backtest/hybrid_momentum/test_screener_gate.py'
+        default: 'backtest/nextday/feasibility.py'
         type: choice
         options:
-          - backtest/hybrid_momentum/test_screener_gate.py
+          - backtest/nextday/feasibility.py
           - backtest/costs.py
           - data/corporate_actions.py
       commit_results:
@@ -21,7 +21,7 @@ on:
 
 jobs:
   run-backtest-matrix:
-    name: Run Hybrid Momentum Gate
+    name: Run Next-Day Feasibility Study
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -73,7 +73,7 @@ jobs:
 
       - name: Execute Strategy Backtest & Monte Carlo
         run: |
-          python ${{ inputs.strategy || 'backtest/hybrid_momentum/test_screener_gate.py' }}
+          python ${{ inputs.strategy || 'backtest/nextday/feasibility.py' }}
 
       - name: Archive Backtest Results & Charts
         uses: actions/upload-artifact@v4
@@ -81,7 +81,7 @@ jobs:
         with:
           name: backtest-artifacts-${{ github.sha }}
           path: |
-            backtest/results/hybrid_momentum/
+            backtest/results/nextday/
           retention-days: 30
 
       - name: Commit & Push Results to Branch
