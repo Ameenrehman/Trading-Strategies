@@ -29,6 +29,11 @@ The practical finding is the holding period: at 1 day there is ~12 bps of edge
 against a 27–104 bps round trip. **The signal is fine; one day is the wrong
 horizon.**
 
+That conclusion was then built and tested. **The screener cleared all six
+pre-registered criteria on 13 years and failed to replicate on the sealed
+holdout** — see [Built, gated, rejected](#built-gated-rejected). Nothing here is
+fundable; what remains is a documented method and two transferable findings.
+
 ## Win rate is a dial, not an achievement
 
 Same picks, same days. Only the barriers move:
@@ -77,6 +82,36 @@ fake fade. On the 50 symbols with 5-minute data the leg is +5.5 bps close-to-ope
 on daily bars but only **+2.7 bps at 52.2%** between the 15:25 and 09:20 prints —
 the two prices you could actually transact at.
 
+## Built, gated, rejected
+
+The study's recommendation — a reversal screener held 10 days — was built
+(`strategies/reversal.py`) and gated against six pre-registered criteria.
+
+| | development (2011–2024) | sealed holdout (2024–2026) |
+|---|---|---|
+| edge per 10-day window | **+27.3 bps**, t = 2.29 | **+8.7 bps**, t = 0.94 |
+| criteria cleared | **6 of 6** | 1 of 5 evaluable |
+| book vs universe (CAGR) | **33.96%** vs 22.91% | 3.34% vs 1.16% |
+| max drawdown | −35.53% vs −37.47% | −28.16% vs −21.38% |
+
+**It did not replicate, and the window had the power to say so:** the holdout's
+standard error is 9.2 bps, so a +27.3 bps edge would have printed t = 2.97 there.
+
+What survived is the *sign*, not the size — the screener still beat 20 of 20
+random seeds and the bottom of its ranking was still the worst bucket. The
+likeliest reading is a weak real effect inflated in-sample by choosing the design
+(horizon, components, pick count) on the window it was scored on.
+
+Two findings outlived it:
+
+- **Stops make a mean-reversion book worse, drawdown included.** Time exit only:
+  33.96% CAGR at −35.5% max DD. A 2.0/3.0 ATR stop-and-target: 24.82% at −46.0%.
+  A stop sells exactly what the signal bought and locks in the loss the trade
+  existed to recover. SL/TP levels are risk context, not an exit rule.
+- **Entry timing is worth ~3 points of CAGR** — buying into the close rather than
+  the next open, on identical picks, because the overnight move is real even
+  though it cannot be traded on its own.
+
 ## Horizon is what has to change
 
 Same out-of-sample picks, held longer:
@@ -87,7 +122,18 @@ Same out-of-sample picks, held longer:
 | t (non-overlapping) | 5.23 | 6.28 | 5.58 | 3.62 | 2.78 | 3.29 |
 
 A round trip is paid once per trade, not once per day, so the total edge column
-is what clears it. Full detail and the recommendation in
+is what clears it.
+
+**But most of that long-horizon strength is not reversal.** The model behind this
+table includes a turnover (size) feature, and size dominates at 10+ days — while
+being the factor most exposed to survivorship bias, since this universe is
+today's index membership applied to history. Ranking *within* turnover bands so a
+pick cannot be a size bet, the 20-day edge falls from +132.7 bps (t 2.78) to
+**+34.7 bps (t 1.37)**, and reversal alone peaks at 3–10 days. That correction is
+why the built strategy holds 10 days and excludes size, and it is measured in
+`G6` of the gate.
+
+Full detail in
 [`Learning-T/phase-2-nextday-direction.md`](Learning-T/phase-2-nextday-direction.md).
 
 ---
@@ -98,12 +144,18 @@ is what clears it. Full detail and the recommendation in
 strategies/
   panel.py                     # the shared price panel: OHLCV, corporate-action
                                # repair, calendar hygiene. Strategy-agnostic.
+  features.py                  # the feature library, shared by study and strategy
+  reversal.py                  # the screener - REJECTED at the holdout; run it
+                               # for a list and it says so before it says anything
 backtest/
   costs.py                     # intraday / delivery / hybrid, calibrated against
                                # a real contract note to the paisa
   nextday/
     feasibility.py             # the study - run and read this first
-  results/nextday/             # feasibility_report.txt + 10 CSVs
+    test_reversal.py           # the pre-registered gate, dev and holdout
+  results/nextday/             # feasibility_report.txt + CSVs
+    reversal/                  # gate on the development window (6 of 6)
+    reversal_holdout/          # gate on the sealed window (1 of 5)
 data/
   fetch_universe.py            # chunked fetcher (5-min and daily) + integrity audit
   fetch_historical.py
@@ -132,6 +184,9 @@ Everything reproduces from the committed data — no credentials, no network:
 ```bash
 python backtest/nextday/feasibility.py                      # the study
 python backtest/nextday/feasibility.py --universe intraday50
+python backtest/nextday/test_reversal.py                    # the gate
+python backtest/nextday/test_reversal.py --holdout          # the rejection
+python strategies/reversal.py                               # today's list + SL/TP
 python backtest/costs.py                                    # cost tables + contract-note check
 python data/corporate_actions.py                            # what gets repaired, and why
 ```

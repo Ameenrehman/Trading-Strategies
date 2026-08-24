@@ -1,0 +1,208 @@
+
+==============================================================================
+REVERSAL SCREENER - PRE-REGISTERED GATE
+==============================================================================
+  G1  Top-N beats the equal-weight universe at the chosen hold   edge > 0 bps, non-overlapping t > 2
+  G2  Ranking is monotone: top-5 >= top-20 >= universe >= bottom-5 ordering holds
+  G3  Beats randomised selection on the same dates               >= 19 of 20 seeds
+  G4  Edge is not carried by one or two years                    positive in >= 7 of the last 10 years
+  G5  The blend earns its complexity                             composite edge >= best single component
+  G6  The edge is not a disguised small-cap bet                  size-neutral version still clears G1
+
+Config: 5 positions, 10-day hold, size_neutral=True, SL 2.0 ATR / TP 3.0 ATR
+Components (6): ret1, ret5, dist_ma20, clv, updays5, high_prox
+All are sign-flipped - the screener buys weakness. Costs excluded by
+instruction, so every figure is gross and an upper bound.
+
+*** HOLDOUT RUN: 2024-08-21 to 2026-08-21. This window is spent. ***
+Universe: 205 symbols, 496 dates (2024-08-22 to 2026-08-21)
+Eligible name-days: 85,760
+
+==============================================================================
+G1. EDGE OVER THE UNIVERSE AT A 10-DAY HOLD
+==============================================================================
+  top-5          21.2 bps per 10-day window
+  universe       12.5 bps
+  edge           +8.7 bps   t = 0.94 (49 non-overlapping windows; overlapping t = 0.74)
+  hit rate       48.8 %
+  std error       9.2 bps   -> smallest edge this window could call significant: 18.4 bps
+  the development edge of +27.3 bps would have produced t = 2.97 here,
+  so this window HAD the power to confirm it.
+  -> FAIL
+
+==============================================================================
+G2. RANK MONOTONICITY
+==============================================================================
+If the ranking carries information, walking down it should walk down the
+returns. This is the mirror test - it fails loudly when a screener is
+accidentally inverted.
+
+  top 5          21.2 bps   hit  48.8%
+  top 20         26.6 bps   hit  49.0%
+  universe       12.5 bps   hit  49.0%
+  bottom 5       -7.6 bps   hit  47.9%
+  -> FAIL
+
+==============================================================================
+G3. VERSUS RANDOM SELECTION
+==============================================================================
+Same dates, same eligible set, same number of names - only the choice of
+names differs. This is the control that kills most screeners.
+
+  random edge: mean -3.2 bps, best +8.1, worst -22.7
+  screener +8.7 bps beats 20 of 20 seeds
+  -> PASS
+
+==============================================================================
+G4. YEAR BY YEAR
+==============================================================================
+  2024   edge    +22.2 bps   top    -75.9   universe    -98.1
+  2025   edge    +25.3 bps   top     71.4   universe     46.0
+  2026   edge    -27.5 bps   top     -3.9   universe     23.6
+  positive in 2 of the last 3 years
+  -> NOT EVALUABLE (3 years in this window; the criterion needs 10)
+
+==============================================================================
+G5. THE BLEND VERSUS ITS OWN COMPONENTS
+==============================================================================
+Adding uninformative factors to a ranking makes it worse. If any single
+component beats the blend, the blend is not earning its complexity.
+
+  ret1         edge     -5.3 bps   t   1.52
+  ret5         edge     -9.1 bps   t  -0.57
+  dist_ma20    edge    +14.8 bps   t  -0.40
+  clv          edge     -7.9 bps   t   1.63
+  updays5      edge     -8.7 bps   t  -0.19
+  high_prox    edge    +31.6 bps   t   0.05
+  COMPOSITE    edge     +8.7 bps   t   0.94
+  -> FAIL (best single +31.6 bps)
+
+==============================================================================
+G6. IS IT A DISGUISED SMALL-CAP BET?
+==============================================================================
+Turnover with a negative sign is the strongest raw factor in this data,
+and the one most exposed to survivorship: this universe is today's index
+membership applied to history. Measured on cohorts, the effect is ~50%
+stronger among symbols that entered the panel late - the names where the
+bias is worst. So the score is ranked WITHIN turnover bands, and the
+comparison below shows what that costs and what it buys.
+
+  reversal, size-neutral       +8.7 bps   t   0.94   <- what is traded
+  reversal, raw               +13.5 bps   t   0.39
+  size alone (-turnover)       -0.9 bps   t  -1.52   <- excluded on purpose
+  -> FAIL
+
+==============================================================================
+HOLDING PERIOD SCAN
+==============================================================================
+Reversal decays. Per-trade edge keeps rising with the hold while
+significance falls, because a longer hold means fewer independent windows.
+
+   hold   top bps  universe     edge       t  edge/day
+      3      16.0       4.7    +11.3    0.77       3.8
+      5      24.1       7.5    +16.6    2.08       3.3
+     10      21.2      12.5     +8.7    0.94       0.9
+     15      46.9      19.0    +27.9    0.34       1.9
+     20      50.7      23.0    +27.7   -0.01       1.4
+     40      48.0      34.7    +13.3   -0.48       0.3
+
+==============================================================================
+EXIT RULES - DO THE BARRIERS HELP?
+==============================================================================
+A stop converts a temporary drawdown into a realised loss. On a mean-
+reverting signal that is exactly the wrong reflex, so it has to be
+measured rather than assumed. Entry at the next open, gaps filling at the
+open, a bar touching both barriers scored as the stop.
+
+  SL/TP (ATR)      win %       bps       t   avg win  avg loss  payoff
+  time exit only    47.6       6.3    0.54     496.1    -438.7    1.13
+  1.0/1.5           39.9     -14.1    0.20     449.5    -322.4    1.39
+  1.5/2.0           44.2     -14.7    0.04     490.8    -414.6    1.18
+  2.0/3.0           45.8     -11.2   -0.30     506.3    -448.9    1.13
+  3.0/3.0           47.6      -3.2    0.02     502.2    -461.5    1.09
+  2.0/6.0           45.3     -14.6   -0.32     506.9    -446.1    1.14
+
+==============================================================================
+PORTFOLIO - A ROLLING BOOK OF ACTUAL POSITIONS
+==============================================================================
+5 slots, held up to 10 days, a freed slot refilled the
+next session. With barriers off nothing frees early, so the book becomes a
+10-day rebalance cycle: a fresh list of 5 names every 10 sessions.
+Gross of costs.
+
+Two design choices dominate everything else here: when you buy, and
+whether you enforce a stop at all. Both are varied below against the same
+picks on the same days, so the differences are the rules and nothing else.
+
+  entry   exit rule               trades  bps/trade   win %      t     CAGR   max DD
+  open    time only                  245       32.5    51.0   0.56    7.33%  -18.51%
+  open    stop 2.0 / target 3.0      307        0.2    45.6   1.25   -1.24%  -29.58%
+  close   time only                  245       17.0    49.4   0.29    3.34%  -28.16%
+  close   stop 2.0 / target 3.0      296       57.6    49.3   1.15   17.20%  -23.93%
+  close   stop 3.0 / target 3.0      271       54.5    49.8   2.29   14.66%  -27.08%
+  close   stop 3.0, no target        254        6.4    47.2  -0.19    0.53%  -22.28%
+  close   stop 2.5, no target        264       36.1    49.6   0.00    8.66%  -20.44%
+  close   stop 2.0, no target        279       49.4    51.3   0.32   13.28%  -24.09%
+  benchmark (equal-weight universe)                                1.16%  -21.38%
+
+The two rows that differ only by entry timing are the same picks on the
+same days. The gap between them is the overnight move, forfeited by
+waiting for the open and kept by the close-to-close benchmark.
+
+
+Every stop setting loses to no stop, and the wide ones make the DRAWDOWN
+worse too. That is not a paradox: stopping out of a mean-reversion trade
+realises the loss the position existed to recover, and the freed slot buys
+the next falling name. The SL/TP levels stay in the output as risk and
+sizing context - they are not an exit rule here.
+
+Detail for the strongest variant: close entry, ATR barriers.
+
+  trades            296 on 213 exit dates, median 3 calendar days apart
+  mean per trade    +57.6 bps  (t = 1.15, stride 5 -> 43 independent windows)
+  win rate          49.3 %
+  median hold       10 days
+
+  exit reason breakdown:
+    gap through stop          7  ( 2.4%)  mean  -1280.5 bps
+    gap through target        5  ( 1.7%)  mean  +1201.0 bps
+    stop                     56  (18.9%)  mean   -633.5 bps
+    target                   40  (13.5%)  mean  +1039.5 bps
+    time                    188  (63.5%)  mean    +74.0 bps
+
+                              CAGR    max DD
+  strategy book             17.20%   -23.93%
+  equal-weight universe      1.45%   -21.38%
+
+  The book holds at most 5 names against a 176-name benchmark, so a
+  worse drawdown is expected and is the price of concentration, not a
+  defect. Costs are excluded; at small size they are large.
+
+==============================================================================
+VERDICT
+==============================================================================
+  G1  FAIL  Top-N beats the equal-weight universe at the chosen hold
+  G2  FAIL  Ranking is monotone: top-5 >= top-20 >= universe >= bottom-5
+  G3  PASS  Beats randomised selection on the same dates
+  G4  n/a   Edge is not carried by one or two years
+  G5  FAIL  The blend earns its complexity
+  G6  FAIL  The edge is not a disguised small-cap bet
+
+1 of 5 evaluable criteria cleared.
+
+REJECTED OUT OF SAMPLE. The screener cleared all six criteria on 13
+years of development data and did not replicate on the sealed 24
+months. The standard error above shows this window could have called
+the development-sized edge significant, so this is a real failure to
+replicate rather than a window too short to tell.
+
+What did survive: the screener still beat 20 of 20 random seeds, and
+the bottom of the ranking was still the worst bucket. The sign of the
+effect is intact; its size is not tradeable. That is consistent with a
+weak real signal whose in-sample estimate was inflated by having chosen
+the design - horizon, components, pick count - on that same window.
+
+The holdout is now spent. Re-running this after changing the config
+does not produce a second out-of-sample test, only a worse one.
+
+Artifacts: C:\Users\ameenur.r.OMAEMIRATES\Downloads\Learning-T\backtest\results\nextday\reversal_holdout

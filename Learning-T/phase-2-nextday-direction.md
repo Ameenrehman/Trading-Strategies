@@ -165,6 +165,15 @@ only how long the position is kept:
 | 20 days | 301.9 | 169.3 | **+132.7** | 2.78 | 6.6 |
 | 40 days | 573.8 | 338.4 | **+235.5** | 3.29 | 5.9 |
 
+> **Correction, from Part 2.** This table's long-horizon strength is mostly not
+> reversal. The walk-forward model behind it includes a turnover (size) feature,
+> and size is the dominant factor at 10+ days — and the one most exposed to
+> survivorship bias. With size removed and the score ranked *within* turnover
+> bands, the 20-day edge falls from +132.7 bps (t 2.78) to **+34.7 bps (t 1.37)**
+> and the 40-day figure stops being significant at all. The reversal signal alone
+> peaks at 3–10 days. Read the numbers below as the size effect plus reversal,
+> not as reversal.
+
 Edge *per day* decays with horizon, but a round trip is paid **once per trade,
 not once per day**. What has to clear the cost hurdle is the third column. At one
 day there is ~12 bps of edge against a 27–104 bps round trip at small size — the
@@ -236,3 +245,95 @@ feed:
    the universe. The reversal signal's short side was not separately validated.
 3. **Confirm capital.** At ₹5,000 the fixed DP charge alone is 47 bps per
    position and no 1-day edge survives. Nothing else moves the economics as much.
+
+---
+
+# Part 2 — the build, and its rejection
+
+The feasibility study said: real but weak signal, reversal not trend, 10–20 day
+horizon. That was built as `strategies/reversal.py` and gated by
+`backtest/nextday/test_reversal.py` against six criteria written before the run.
+
+**It cleared all six on 13 years of development data and failed to replicate on
+the sealed holdout.** The holdout is spent.
+
+## Development window (2011-08 → 2024-08)
+
+| # | criterion | result | |
+|---|---|---|---|
+| G1 | edge > 0, non-overlapping t > 2 | **+27.3 bps** per 10-day window, t = 2.29 | PASS |
+| G2 | top-5 ≥ top-20 ≥ universe ≥ bottom-5 | 118.4 / 109.7 / 91.1 / 82.6 | PASS |
+| G3 | beats ≥ 19 of 20 random seeds | **20 of 20** | PASS |
+| G4 | positive in ≥ 7 of last 10 years | 8 of 10 | PASS |
+| G5 | composite ≥ best single component | +27.3 vs +23.0 | PASS |
+| G6 | not a disguised small-cap bet | size-neutral, still t = 2.29 | PASS |
+
+The book — 5 names, 10-day cycle, entered at the close, exited on time:
+
+| | CAGR | max DD | bps/trade | win rate |
+|---|---:|---:|---:|---:|
+| strategy | **33.96%** | **−35.53%** | +135.2 (t = 4.15) | 55.9% |
+| equal-weight universe | 22.91% | −37.47% | | |
+
+## Sealed holdout (2024-08 → 2026-08) — the rejection
+
+| # | result | |
+|---|---|---|
+| G1 | **+8.7 bps, t = 0.94** | FAIL |
+| G2 | top-20 (26.6) > top-5 (21.2) | FAIL |
+| G3 | beats **20 of 20** random seeds | PASS |
+| G4 | 3 calendar years in a 24-month window | not evaluable |
+| G5 | best single (+31.6, t 0.05) > composite | FAIL |
+| G6 | fails with G1 | FAIL |
+
+**This is a real failure, not an underpowered window.** The holdout's standard
+error is 9.2 bps, so the development edge of +27.3 bps would have printed
+**t = 2.97** there. The window could have confirmed it and did not.
+
+What survived: the screener still beat **20 of 20** random seeds, and the bottom
+of the ranking was still the worst bucket (−7.6 bps against +12.5 for the
+universe). The **sign** of the effect is intact; the **magnitude** is not
+tradeable.
+
+The likeliest reading is a weak real effect whose in-sample size was inflated
+because the design — horizon, components, pick count — was selected on the same
+window it was scored on. The feasibility study measured that design space
+explicitly: 17 features × 5 horizons, 3 composites, 6 pick counts, 8 exit rules.
+A t of 2.29 on the best of that many looks is not a t of 2.29.
+
+## Two findings that outlived the strategy
+
+**1. Stops make a mean-reversion book worse — including its drawdown.**
+
+| exit rule | bps/trade | CAGR | max DD | stopped out |
+|---|---:|---:|---:|---:|
+| time only | **+135.2** | **33.96%** | **−35.53%** | 0% |
+| stop 2.5 ATR, no target | +115.0 | 30.52% | −33.55% | 17.4% |
+| stop 3.0 ATR, no target | +95.1 | 23.55% | −41.75% | 11.5% |
+| stop 2.0 / target 3.0 | +85.6 | 24.82% | −46.03% | 24.6% |
+
+A stop sells exactly what the signal bought — more weakness — and realises the
+loss the position existed to recover. The freed slot then buys the next falling
+name, so the drawdown is not even reduced. **SL/TP levels are still worth
+computing as sizing and risk context; they are not an exit rule for this signal.**
+
+**2. Entry timing is worth ~3 points of CAGR.** Same picks, same days: buying at
+the next open returned 30.99% against 33.96% for buying into the close. The gap
+is the overnight move, which the close-to-close benchmark keeps and an open entry
+forfeits — the same effect that killed the overnight strategy in Part 1, seen
+from the other side.
+
+## Where this leaves things
+
+- **Do not fund this.** `strategies/reversal.py` prints the holdout verdict
+  before it prints a list.
+- **The only clean test left is forward time** — paper trading. Every historical
+  window in this data has now been used to either design or reject.
+- **The strongest raw factor in the data remains size** (turnover, negative sign:
+  +62.7 bps at t = 3.87 on the development window). It is excluded on purpose and
+  cannot be cleared without a point-in-time constituent list, which the free feed
+  does not provide. If that list can be obtained it is the highest-value next
+  step — it would either legitimise the strongest effect here or kill it.
+- **The 5-day horizon was the only one that held up in the holdout** (+16.6 bps,
+  t = 2.08). That is a post-hoc observation on a spent window and cannot be
+  claimed as a result; it would need a fresh forward test to mean anything.
